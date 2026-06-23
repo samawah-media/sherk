@@ -12,7 +12,7 @@ Last updated: 2026-06-23
 | Current allowed stage | A1R - Real Supabase RLS Verification |
 | Status | BLOCKED |
 | Next gate | A1R must become FULLY VERIFIED before A2 starts |
-| Owner decision required | Enable/install Docker Desktop and reopen the terminal/session so `docker version` and `docker info` work |
+| Owner decision required | Install/enable WSL from an administrative PowerShell, restart Windows, then reopen Docker Desktop until `docker info` reports a running server |
 
 ## Stage Status
 
@@ -20,7 +20,7 @@ Last updated: 2026-06-23
 |---|---|---|
 | A0 Project Foundation | COMPLETE | Existing evidence: `specs/001-secure-tenant-client-onboarding/evidence/f001a/checkpoint-a0.md` |
 | A1 Identity and Tenant Context | CONDITIONALLY VERIFIED | Existing evidence: `specs/001-secure-tenant-client-onboarding/evidence/f001a/checkpoint-a1.md`; real DB verification remains blocked by A1R. |
-| A1R Real Supabase RLS Verification | BLOCKED | Simulator checks pass and pgTAP database tests are prepared, but local Supabase/PostgreSQL cannot be reached without Docker. |
+| A1R Real Supabase RLS Verification | BLOCKED | Simulator checks pass and pgTAP database tests are prepared, but Docker Desktop cannot start its Linux engine because WSL is not installed. |
 | A2 Client Foundation | NOT STARTED | Must not start until A1R is FULLY VERIFIED and owner approves crossing the gate. |
 
 ## Latest A1R Checkpoint
@@ -35,6 +35,9 @@ npm run secret:scan
 npx supabase@2.107.0 db reset --local --no-seed
 npm run test:rls:db
 wsl -l -v
+docker version
+docker info
+docker desktop status
 ```
 
 Results:
@@ -46,6 +49,9 @@ Results:
 - `npx supabase@2.107.0 db reset --local --no-seed`: blocked at Docker daemon/pipe inspection.
 - `npm run test:rls:db`: failed before assertions because the Supabase CLI could not connect to local Postgres.
 - `wsl -l -v`: failed because WSL is not installed, so there is no WSL Docker fallback in this environment.
+- `docker version`: Docker CLI exists at `C:\Users\omarh\AppData\Local\Programs\DockerDesktop\resources\bin\docker.exe`, but the server is unavailable.
+- `docker info`: failed because Docker Desktop Linux engine is not running.
+- `docker desktop status`: reports `starting`, then Docker Desktop shows WSL is not installed.
 
 Prepared but not fully verified:
 
@@ -56,7 +62,7 @@ Prepared but not fully verified:
 
 ## Blocker
 
-Docker is not available in the current shell, and WSL is not installed, so the local Supabase stack cannot be started and actual PostgreSQL RLS verification cannot pass.
+Docker Desktop is installed, but WSL is not installed and Docker Desktop cannot start the Linux engine. The local Supabase stack cannot be started and actual PostgreSQL RLS verification cannot pass until WSL is installed and Windows is restarted.
 
 ## Out of Scope Until A1R Passes
 

@@ -32,9 +32,10 @@ This checkpoint intentionally does not approve A1 for A2. It records A1R readine
 | Node.js | Pass | `v24.12.0` |
 | npm | Pass | `11.6.2` |
 | Supabase CLI pinned via npx | Pass | `npx supabase@2.107.0 --version` returned `2.107.0` |
-| Docker CLI | Blocked | `docker` command not recognized in current shell |
+| Docker CLI | Partial | Docker Desktop 4.79.0 is installed under the user profile; `docker.exe` works by full path but is not on this shell's PATH |
 | WSL fallback | Blocked | `wsl -l -v` reports WSL is not installed |
-| Local Supabase stack | Not run | Requires Docker |
+| Docker engine | Blocked | Docker Desktop status remains `starting`, and Docker Desktop reports WSL is not installed |
+| Local Supabase stack | Not run | Requires a running Docker Linux engine |
 | `supabase db reset` | Blocked | `npx supabase@2.107.0 db reset --local --no-seed` reached Docker inspection and failed because Docker daemon/pipe is unavailable |
 | `supabase test db` | Blocked | `npm run test:rls:db` reached the Supabase CLI but failed to connect to local Postgres |
 
