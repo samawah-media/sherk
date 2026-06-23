@@ -47,7 +47,7 @@ The loaded standard covers TypeScript, Next.js, React, Supabase, RLS, file secur
 
 **Constraints**: No client-trusted `tenant_id` or `client_id`; deny by default; server-side authorization for sensitive commands; RLS as defense in depth; no microservices; no deliverables, files, SLA, approvals, contracts, billing, or social scheduling inside F-001.
 
-**Scale/Scope**: First pilot tenant is Samawah with a small initial client portfolio. F-001 includes 12 conceptual data entities, 15 operation contracts, 5 invitation states, 6 user stories, 20 acceptance scenarios, and high security risk because it establishes all later trust boundaries.
+**Scale/Scope**: First pilot tenant is Samawah with a small initial client portfolio. F-001 includes 13 conceptual data entities, 15 operation contracts, 5 invitation states, 6 user stories, 20 acceptance scenarios, and high security risk because it establishes all later trust boundaries.
 
 ## Constitution Check
 
@@ -416,7 +416,7 @@ F-001 remains a valid first vertical slice because all later V1 work depends on 
 
 Indicators:
 
-- Entities: 12 conceptual entities.
+- Entities: 13 conceptual entities.
 - Contracts: 15 operation contracts.
 - Invitation states: 5 core states plus derived expiry behavior.
 - User stories: 6.
