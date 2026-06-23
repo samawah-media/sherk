@@ -1,0 +1,38 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build and framework outputs
+.next/
+out/
+dist/
+build/
+coverage/
+playwright-report/
+test-results/
+
+# Local tooling
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
+
+# Supabase local state
+.supabase/
+
+# Temporary files
+tmp/
+temp/
+*.tmp

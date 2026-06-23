@@ -1,0 +1,6 @@
+{
+  "name": "سماوة - Deliverables Bridge",
+  "description": "منصة سماوة لإدارة المخرجات التسويقية وربط العميل بفريق العمل والإدارة لمتابعة الجودة واتفاقيات مستوى الخدمة (SLA).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,44 @@
+# RLS and Access Control Matrix: شريك
+
+## 1. المبدأ
+
+RLS طبقة دفاع أساسية، لكنها لا تعفي من Permission Evaluation في الخادم. أي سياسة يجب أن تجمع بين identity وscope وresource state.
+
+## 2. مجموعات السياسات
+
+| Group | الجداول | Predicate مفاهيمي |
+| --- | --- | --- |
+| Tenant scoped read | tenants, memberships | user has active tenant membership |
+| Client scoped read | clients, contracts, deliverables | user has client scope or tenant management scope |
+| Assignment scoped read | deliverables, tasks | user assigned or manager for client |
+| Client portal read | deliverables, files, comments | client_id membership + visibility allowed |
+| Internal-only deny | comments, files, versions | deny client roles when visibility internal |
+| Audit scoped read | audit_events | management scope; client external history only |
+| Ledger scoped read | usage_ledger | management/client limited summaries |
+
+## 3. Write Access
+
+Writes الحساسة لا تعتمد على RLS فقط. RLS تمنع الصفوف خارج النطاق، بينما Command Layer يطبق:
+
+- permission id.
+- state transition.
+- required reason.
+- version freshness.
+- audit creation.
+
+## 4. Views
+
+أي View مكشوفة يجب أن تكون security-invoker أو في schema غير مكشوفة مع grants مقيدة. Read models للعميل لا تعرض internal fields.
+
+## 5. Matrix مختصرة
+
+| Resource | Client User | Team | PM/MM | Tenant Admin | Platform |
+| --- | --- | --- | --- | --- | --- |
+| Deliverable before internal approval | Deny | Assigned | Allow | Allow | Limited/no content |
+| Deliverable sent to client | Own client | Assigned | Allow | Allow | Limited |
+| Internal comment | Deny | Assigned | Allow | Allow | Deny by default |
+| Client comment | Own client | Assigned | Allow | Allow | Limited |
+| Internal file | Deny | Assigned | Allow | Allow | Deny by default |
+| Final file | Own client | Assigned | Allow | Allow | Limited |
+| Audit internal | Limited external only | Deny/limited | Allow | Allow | Restricted |
+
