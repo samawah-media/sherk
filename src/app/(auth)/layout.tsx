@@ -3,5 +3,13 @@ export default function AuthLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return <section className="min-h-screen bg-background">{children}</section>;
+  return (
+    <section
+      className="min-h-screen bg-background"
+      dir="rtl"
+      data-security-scope="auth-entry"
+    >
+      {children}
+    </section>
+  );
 }
