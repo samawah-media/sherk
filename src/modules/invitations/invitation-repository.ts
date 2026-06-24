@@ -298,4 +298,22 @@ export class InMemoryInvitationRepository implements InvitationRepository {
       .filter((invitation) => invitation.tenantId === tenantId)
       .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
   }
+
+  snapshot() {
+    return Array.from(this.invitations.entries()).map(([id, invitation]) => [
+      id,
+      { ...invitation, clientIds: [...invitation.clientIds] },
+    ]);
+  }
+
+  restore(snapshot: unknown) {
+    this.invitations.clear();
+
+    for (const [id, invitation] of snapshot as [string, InvitationRecord][]) {
+      this.invitations.set(id, {
+        ...invitation,
+        clientIds: [...invitation.clientIds],
+      });
+    }
+  }
 }

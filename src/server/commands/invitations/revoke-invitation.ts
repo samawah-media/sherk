@@ -1,5 +1,9 @@
 import { z } from "zod";
-import type { AuditSink } from "@/modules/audit/audit-service";
+import {
+  runAuditAtomicMutation,
+  transactionalResources,
+  type AuditSink,
+} from "@/modules/audit/audit-service";
 import type { AuthorizationActor } from "@/modules/authorization/evaluator";
 import { PERMISSIONS } from "@/modules/authorization/permission-catalog";
 import type { InvitationRepository } from "@/modules/invitations/invitation-repository";
@@ -44,13 +48,7 @@ export const revokeInvitationCommand = async ({
     },
     audit,
     operation: async () => {
-      const revoked = await invitations.revoke({
-        invitationId: invitation.id,
-        revokedBy: actor.userId,
-        revokedAt: now().toISOString(),
-      });
-
-      if (!revoked) {
+      if (invitation.status !== "pending" && invitation.status !== "revoked") {
         return {
           ok: false as const,
           error:
@@ -60,18 +58,36 @@ export const revokeInvitationCommand = async ({
         };
       }
 
-      await audit.append({
-        tenantId: invitation.tenantId,
-        clientId: invitation.clientIds[0],
-        actorUserId: actor.userId,
-        action: "InvitationRevoked",
-        decision: "allowed",
-        targetType: "invitation",
-        targetId: invitation.id,
-        reason: parsed.data.reason,
-      });
+      return runAuditAtomicMutation({
+        resources: transactionalResources([audit, invitations]),
+        operation: async () => {
+          await audit.append({
+            tenantId: invitation.tenantId,
+            clientId: invitation.clientIds[0],
+            actorUserId: actor.userId,
+            action: "InvitationRevoked",
+            decision: "allowed",
+            targetType: "invitation",
+            targetId: invitation.id,
+            reason: parsed.data.reason,
+          });
 
-      return { ok: true as const, value: revoked };
+          const revoked = await invitations.revoke({
+            invitationId: invitation.id,
+            revokedBy: actor.userId,
+            revokedAt: now().toISOString(),
+          });
+
+          if (!revoked) {
+            return {
+              ok: false as const,
+              error: "INVITATION_NOT_FOUND" as const,
+            };
+          }
+
+          return { ok: true as const, value: revoked };
+        },
+      });
     },
   });
 };

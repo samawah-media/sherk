@@ -340,4 +340,42 @@ export class InMemoryMembershipRepository implements MembershipRepository {
       (assignment) => assignment.tenantId === tenantId,
     );
   }
+
+  snapshot() {
+    return {
+      tenantMemberships: Array.from(this.tenantMemberships.entries()).map(
+        ([id, membership]) => [id, { ...membership }],
+      ),
+      clientMemberships: Array.from(this.clientMemberships.entries()).map(
+        ([id, membership]) => [id, { ...membership }],
+      ),
+      roleAssignments: Array.from(this.roleAssignments.entries()).map(
+        ([id, assignment]) => [id, { ...assignment }],
+      ),
+    };
+  }
+
+  restore(snapshot: unknown) {
+    const typed = snapshot as {
+      tenantMemberships: [string, TenantMembership][];
+      clientMemberships: [string, ClientMembership][];
+      roleAssignments: [string, RoleAssignment][];
+    };
+
+    this.tenantMemberships.clear();
+    this.clientMemberships.clear();
+    this.roleAssignments.clear();
+
+    for (const [id, membership] of typed.tenantMemberships) {
+      this.tenantMemberships.set(id, { ...membership });
+    }
+
+    for (const [id, membership] of typed.clientMemberships) {
+      this.clientMemberships.set(id, { ...membership });
+    }
+
+    for (const [id, assignment] of typed.roleAssignments) {
+      this.roleAssignments.set(id, { ...assignment });
+    }
+  }
 }

@@ -1,5 +1,9 @@
 import { z } from "zod";
-import type { AuditSink } from "@/modules/audit/audit-service";
+import {
+  runAuditAtomicMutation,
+  transactionalResources,
+  type AuditSink,
+} from "@/modules/audit/audit-service";
 import type { AuthorizationActor } from "@/modules/authorization/evaluator";
 import { PERMISSIONS } from "@/modules/authorization/permission-catalog";
 import type { InvitationRepository } from "@/modules/invitations/invitation-repository";
@@ -70,55 +74,90 @@ export const disableMembershipCommand = async ({
         return { ok: false as const, error: "PERMISSION_DENIED" as const };
       }
 
-      const disabled = await memberships.disableMembership({
-        membershipKind: parsed.data.membershipKind,
-        membershipId: parsed.data.membershipId,
-      });
-      const revokedAssignments =
-        await memberships.revokeRoleAssignmentsForMembership({
-          tenantId: actor.tenantId,
-          membershipId: parsed.data.membershipId,
-        });
-      const revokedInvitations = parsed.data.invitedEmail
-        ? await invitations.revokePendingForEmail({
-            tenantId: actor.tenantId,
-            invitedEmail: parsed.data.invitedEmail,
-            revokedBy: actor.userId,
-            revokedAt: now().toISOString(),
-          })
+      return runAuditAtomicMutation({
+        resources: transactionalResources([audit, memberships, invitations]),
+        operation: async () => {
+          const pendingInvitations = parsed.data.invitedEmail
+        ? (await invitations.listByTenant(actor.tenantId)).filter(
+            (invitation) =>
+              invitation.invitedEmail ===
+                parsed.data.invitedEmail?.toLowerCase() &&
+              invitation.status === "pending",
+          )
         : [];
+      const activeRoleAssignments = (
+        await memberships.listRoleAssignments(actor.tenantId)
+      ).filter(
+        (assignment) =>
+          assignment.membershipId === parsed.data.membershipId &&
+          assignment.status === "active",
+      );
 
-      if (!disabled) {
-        return { ok: false as const, error: "CONFLICT_RETRY" as const };
-      }
+          await audit.append({
+            tenantId: actor.tenantId,
+            actorUserId: actor.userId,
+            action: "MembershipSuspended",
+            decision: "allowed",
+            targetType: `${parsed.data.membershipKind}_membership`,
+            targetId: target.id,
+            reason: parsed.data.reason,
+          });
 
-      await audit.append({
-        tenantId: actor.tenantId,
-        actorUserId: actor.userId,
-        action: "MembershipSuspended",
-        decision: "allowed",
-        targetType: `${parsed.data.membershipKind}_membership`,
-        targetId: disabled.id,
-        reason: parsed.data.reason,
+          for (const assignment of activeRoleAssignments) {
+            await audit.append({
+              tenantId: actor.tenantId,
+              clientId:
+                assignment.scopeType === "client" ? assignment.scopeId : undefined,
+              actorUserId: actor.userId,
+              action: "RoleRevoked",
+              decision: "allowed",
+              targetType: "role_assignment",
+              targetId: assignment.id,
+              reason: "membership_disabled",
+            });
+          }
+
+          for (const invitation of pendingInvitations) {
+            await audit.append({
+              tenantId: actor.tenantId,
+              clientId: invitation.clientIds[0],
+              actorUserId: actor.userId,
+              action: "InvitationRevoked",
+              decision: "allowed",
+              targetType: "invitation",
+              targetId: invitation.id,
+              reason: "membership_disabled",
+            });
+          }
+
+          const disabled = await memberships.disableMembership({
+            membershipKind: parsed.data.membershipKind,
+            membershipId: parsed.data.membershipId,
+          });
+          const revokedAssignments =
+            await memberships.revokeRoleAssignmentsForMembership({
+              tenantId: actor.tenantId,
+              membershipId: parsed.data.membershipId,
+            });
+          const revokedInvitations = parsed.data.invitedEmail
+            ? await invitations.revokePendingForEmail({
+                tenantId: actor.tenantId,
+                invitedEmail: parsed.data.invitedEmail,
+                revokedBy: actor.userId,
+                revokedAt: now().toISOString(),
+              })
+            : [];
+
+          if (!disabled) {
+            return { ok: false as const, error: "CONFLICT_RETRY" as const };
+          }
+
+          return {
+            ok: true as const,
+            value: { disabled, revokedAssignments, revokedInvitations },
+          };
+        },
       });
-
-      for (const invitation of revokedInvitations) {
-        await audit.append({
-          tenantId: actor.tenantId,
-          clientId: invitation.clientIds[0],
-          actorUserId: actor.userId,
-          action: "InvitationRevoked",
-          decision: "allowed",
-          targetType: "invitation",
-          targetId: invitation.id,
-          reason: "membership_disabled",
-        });
-      }
-
-      return {
-        ok: true as const,
-        value: { disabled, revokedAssignments, revokedInvitations },
-      };
     },
   });
 };

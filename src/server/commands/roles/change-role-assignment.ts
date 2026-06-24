@@ -1,5 +1,9 @@
 import { z } from "zod";
-import type { AuditSink } from "@/modules/audit/audit-service";
+import {
+  runAuditAtomicMutation,
+  transactionalResources,
+  type AuditSink,
+} from "@/modules/audit/audit-service";
 import type { AuthorizationActor } from "@/modules/authorization/evaluator";
 import type { MembershipRepository } from "@/modules/memberships/membership-repository";
 import { validateRoleAssignmentAuthority } from "@/modules/roles/role-assignment-rules";
@@ -100,28 +104,33 @@ export const changeRoleAssignmentCommand = async ({
     return { ok: false as const, error: "ROLE_ASSIGNMENT_DENIED" as const };
   }
 
-  const updated = await memberships.updateRoleAssignment({
-    assignmentId: existing.id,
-    roleKey: nextRoleKey,
-    scopeType: nextScopeType,
-    scopeId: nextScopeId,
-    status: nextStatus,
+  return runAuditAtomicMutation({
+    resources: transactionalResources([audit, memberships]),
+    operation: async () => {
+      await audit.append({
+        tenantId: actor.tenantId,
+        clientId: nextScopeType === "client" ? nextScopeId : undefined,
+        actorUserId: actor.userId,
+        action: nextStatus === "removed" ? "RoleRevoked" : "RoleUpdated",
+        decision: "allowed",
+        targetType: "role_assignment",
+        targetId: existing.id,
+        reason: parsed.data.reason,
+      });
+
+      const updated = await memberships.updateRoleAssignment({
+        assignmentId: existing.id,
+        roleKey: nextRoleKey,
+        scopeType: nextScopeType,
+        scopeId: nextScopeId,
+        status: nextStatus,
+      });
+
+      if (!updated) {
+        return { ok: false as const, error: "CONFLICT_RETRY" as const };
+      }
+
+      return { ok: true as const, value: updated };
+    },
   });
-
-  if (!updated) {
-    return { ok: false as const, error: "CONFLICT_RETRY" as const };
-  }
-
-  await audit.append({
-    tenantId: actor.tenantId,
-    clientId: updated.scopeType === "client" ? updated.scopeId : undefined,
-    actorUserId: actor.userId,
-    action: nextStatus === "removed" ? "RoleRevoked" : "RoleUpdated",
-    decision: "allowed",
-    targetType: "role_assignment",
-    targetId: updated.id,
-    reason: parsed.data.reason,
-  });
-
-  return { ok: true as const, value: updated };
 };

@@ -1,5 +1,9 @@
 import { z } from "zod";
-import type { AuditSink } from "@/modules/audit/audit-service";
+import {
+  runAuditAtomicMutation,
+  transactionalResources,
+  type AuditSink,
+} from "@/modules/audit/audit-service";
 import type { AuthorizationActor } from "@/modules/authorization/evaluator";
 import { PERMISSIONS } from "@/modules/authorization/permission-catalog";
 import type { InvitationEmailDispatcher } from "@/modules/invitations/email-dispatcher";
@@ -79,62 +83,69 @@ export const resendInvitationCommand = async ({
         };
       }
 
-      const superseded = await invitations.supersede({
-        invitationId: invitation.id,
-        supersededBy: actor.userId,
-        supersededAt: requestedAt.toISOString(),
+      return runAuditAtomicMutation({
+        resources: transactionalResources([audit, invitations]),
+        operation: async () => {
+          const expiresAt = new Date(requestedAt);
+          expiresAt.setDate(expiresAt.getDate() + 7);
+          const replacementId = idFactory();
+          const replacementToken = tokenFactory();
+
+          await audit.append({
+            tenantId: invitation.tenantId,
+            clientId: invitation.clientIds[0],
+            actorUserId: actor.userId,
+            action: "InvitationSuperseded",
+            decision: "allowed",
+            targetType: "invitation",
+            targetId: invitation.id,
+          });
+          await audit.append({
+            tenantId: invitation.tenantId,
+            clientId: invitation.clientIds[0],
+            actorUserId: actor.userId,
+            action: "InvitationResent",
+            decision: "allowed",
+            targetType: "invitation",
+            targetId: replacementId,
+          });
+
+          const superseded = await invitations.supersede({
+            invitationId: invitation.id,
+            supersededBy: actor.userId,
+            supersededAt: requestedAt.toISOString(),
+          });
+
+          if (!superseded) {
+            return { ok: false as const, error: "CONFLICT_RETRY" as const };
+          }
+
+          const replacement = await invitations.create({
+            id: replacementId,
+            tenantId: invitation.tenantId,
+            invitedEmail: invitation.invitedEmail,
+            membershipType: invitation.membershipType,
+            roleKey: invitation.roleKey,
+            clientIds: invitation.clientIds,
+            token: replacementToken,
+            expiresAt: expiresAt.toISOString(),
+            createdBy: actor.userId,
+            deliveryState: "queued",
+            idempotencyKey: parsed.data.idempotencyKey,
+          });
+
+          const delivery =
+            replacement.membershipType === "internal"
+              ? await dispatcher.sendInternalInvitation(replacement)
+              : await dispatcher.sendClientInvitation(replacement);
+          const delivered = await invitations.markDeliveryState(
+            replacement.id,
+            delivery.ok ? "sent" : "failed",
+          );
+
+          return { ok: true as const, value: delivered ?? replacement };
+        },
       });
-
-      if (!superseded) {
-        return { ok: false as const, error: "CONFLICT_RETRY" as const };
-      }
-
-      const expiresAt = new Date(requestedAt);
-      expiresAt.setDate(expiresAt.getDate() + 7);
-
-      const replacement = await invitations.create({
-        id: idFactory(),
-        tenantId: invitation.tenantId,
-        invitedEmail: invitation.invitedEmail,
-        membershipType: invitation.membershipType,
-        roleKey: invitation.roleKey,
-        clientIds: invitation.clientIds,
-        token: tokenFactory(),
-        expiresAt: expiresAt.toISOString(),
-        createdBy: actor.userId,
-        deliveryState: "queued",
-        idempotencyKey: parsed.data.idempotencyKey,
-      });
-
-      const delivery =
-        replacement.membershipType === "internal"
-          ? await dispatcher.sendInternalInvitation(replacement)
-          : await dispatcher.sendClientInvitation(replacement);
-      const delivered = await invitations.markDeliveryState(
-        replacement.id,
-        delivery.ok ? "sent" : "failed",
-      );
-
-      await audit.append({
-        tenantId: invitation.tenantId,
-        clientId: invitation.clientIds[0],
-        actorUserId: actor.userId,
-        action: "InvitationSuperseded",
-        decision: "allowed",
-        targetType: "invitation",
-        targetId: invitation.id,
-      });
-      await audit.append({
-        tenantId: invitation.tenantId,
-        clientId: invitation.clientIds[0],
-        actorUserId: actor.userId,
-        action: "InvitationResent",
-        decision: "allowed",
-        targetType: "invitation",
-        targetId: replacement.id,
-      });
-
-      return { ok: true as const, value: delivered ?? replacement };
     },
   });
 };

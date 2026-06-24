@@ -1,4 +1,8 @@
-import type { AuditSink } from "@/modules/audit/audit-service";
+import {
+  runAuditAtomicMutation,
+  transactionalResources,
+  type AuditSink,
+} from "@/modules/audit/audit-service";
 import type { AuthSession } from "@/modules/auth/session";
 import {
   evaluateInvitationAcceptance,
@@ -99,60 +103,70 @@ export const acceptInternalInvitationCommand = async ({
     return { ok: false as const, error: decision.error };
   }
 
-  const tenantMembership = await memberships.activateTenantMembership({
-    id: membershipIdFactory(),
-    tenantId: invitation.tenantId,
-    userId: session.userId,
-  });
+  return runAuditAtomicMutation({
+    resources: transactionalResources([audit, invitations, memberships]),
+    operation: async () => {
+      const tenantMembershipId = membershipIdFactory();
+      const roleAssignmentIds = invitation.clientIds.map(() =>
+        roleAssignmentIdFactory(),
+      );
 
-  const roleAssignments = [];
-
-  for (const clientId of invitation.clientIds) {
-    roleAssignments.push(
-      await memberships.assignRole({
-        id: roleAssignmentIdFactory(),
+      await audit.append({
         tenantId: invitation.tenantId,
-        membershipId: tenantMembership.id,
-        roleKey: invitation.roleKey,
-        scopeType: "client",
-        scopeId: clientId,
-      }),
-    );
-  }
+        clientId: invitation.clientIds[0],
+        actorUserId: session.userId,
+        action: "TenantMembershipActivated",
+        decision: "allowed",
+        targetType: "tenant_membership",
+        targetId: tenantMembershipId,
+      });
+      await audit.append({
+        tenantId: invitation.tenantId,
+        clientId: invitation.clientIds[0],
+        actorUserId: session.userId,
+        action: "InvitationAccepted",
+        decision: "allowed",
+        targetType: "invitation",
+        targetId: invitation.id,
+      });
 
-  const accepted = await invitations.accept({
-    invitationId: invitation.id,
-    acceptedBy: session.userId,
-    acceptedAt: acceptedAt.toISOString(),
-  });
+      const tenantMembership = await memberships.activateTenantMembership({
+        id: tenantMembershipId,
+        tenantId: invitation.tenantId,
+        userId: session.userId,
+      });
 
-  await audit.append({
-    tenantId: invitation.tenantId,
-    clientId: invitation.clientIds[0],
-    actorUserId: session.userId,
-    action: "TenantMembershipActivated",
-    decision: "allowed",
-    targetType: "tenant_membership",
-    targetId: tenantMembership.id,
-  });
-  await audit.append({
-    tenantId: invitation.tenantId,
-    clientId: invitation.clientIds[0],
-    actorUserId: session.userId,
-    action: "InvitationAccepted",
-    decision: "allowed",
-    targetType: "invitation",
-    targetId: invitation.id,
-  });
+      const roleAssignments = [];
 
-  return {
-    ok: true as const,
-    value: {
-      invitation: accepted ?? invitation,
-      tenantMembership,
-      roleAssignments,
+      for (const [index, clientId] of invitation.clientIds.entries()) {
+        roleAssignments.push(
+          await memberships.assignRole({
+            id: roleAssignmentIds[index],
+            tenantId: invitation.tenantId,
+            membershipId: tenantMembership.id,
+            roleKey: invitation.roleKey,
+            scopeType: "client",
+            scopeId: clientId,
+          }),
+        );
+      }
+
+      const accepted = await invitations.accept({
+        invitationId: invitation.id,
+        acceptedBy: session.userId,
+        acceptedAt: acceptedAt.toISOString(),
+      });
+
+      return {
+        ok: true as const,
+        value: {
+          invitation: accepted ?? invitation,
+          tenantMembership,
+          roleAssignments,
+        },
+      };
     },
-  };
+  });
 };
 
 export const acceptClientInvitationCommand = async ({
@@ -233,53 +247,61 @@ export const acceptClientInvitationCommand = async ({
     return { ok: false as const, error: "VALIDATION_FAILED" as const };
   }
 
-  const clientMembership = await memberships.activateClientMembership({
-    id: membershipIdFactory(),
-    tenantId: invitation.tenantId,
-    clientId,
-    userId: session.userId,
-  });
+  return runAuditAtomicMutation({
+    resources: transactionalResources([audit, invitations, memberships]),
+    operation: async () => {
+      const clientMembershipId = membershipIdFactory();
+      const roleAssignmentId = roleAssignmentIdFactory();
 
-  const roleAssignment = await memberships.assignRole({
-    id: roleAssignmentIdFactory(),
-    tenantId: invitation.tenantId,
-    membershipId: clientMembership.id,
-    roleKey: invitation.roleKey,
-    scopeType: "client",
-    scopeId: clientId,
-  });
+      await audit.append({
+        tenantId: invitation.tenantId,
+        clientId,
+        actorUserId: session.userId,
+        action: "ClientMembershipActivated",
+        decision: "allowed",
+        targetType: "client_membership",
+        targetId: clientMembershipId,
+      });
+      await audit.append({
+        tenantId: invitation.tenantId,
+        clientId,
+        actorUserId: session.userId,
+        action: "InvitationAccepted",
+        decision: "allowed",
+        targetType: "invitation",
+        targetId: invitation.id,
+      });
 
-  const accepted = await invitations.accept({
-    invitationId: invitation.id,
-    acceptedBy: session.userId,
-    acceptedAt: acceptedAt.toISOString(),
-  });
+      const clientMembership = await memberships.activateClientMembership({
+        id: clientMembershipId,
+        tenantId: invitation.tenantId,
+        clientId,
+        userId: session.userId,
+      });
 
-  await audit.append({
-    tenantId: invitation.tenantId,
-    clientId,
-    actorUserId: session.userId,
-    action: "ClientMembershipActivated",
-    decision: "allowed",
-    targetType: "client_membership",
-    targetId: clientMembership.id,
-  });
-  await audit.append({
-    tenantId: invitation.tenantId,
-    clientId,
-    actorUserId: session.userId,
-    action: "InvitationAccepted",
-    decision: "allowed",
-    targetType: "invitation",
-    targetId: invitation.id,
-  });
+      const roleAssignment = await memberships.assignRole({
+        id: roleAssignmentId,
+        tenantId: invitation.tenantId,
+        membershipId: clientMembership.id,
+        roleKey: invitation.roleKey,
+        scopeType: "client",
+        scopeId: clientId,
+      });
 
-  return {
-    ok: true as const,
-    value: {
-      invitation: accepted ?? invitation,
-      clientMembership,
-      roleAssignments: [roleAssignment],
+      const accepted = await invitations.accept({
+        invitationId: invitation.id,
+        acceptedBy: session.userId,
+        acceptedAt: acceptedAt.toISOString(),
+      });
+
+      return {
+        ok: true as const,
+        value: {
+          invitation: accepted ?? invitation,
+          clientMembership,
+          roleAssignments: [roleAssignment],
+        },
+      };
     },
-  };
+  });
 };

@@ -1,5 +1,9 @@
 import { z } from "zod";
-import type { AuditSink } from "@/modules/audit/audit-service";
+import {
+  runAuditAtomicMutation,
+  transactionalResources,
+  type AuditSink,
+} from "@/modules/audit/audit-service";
 import type { AuthorizationActor } from "@/modules/authorization/evaluator";
 import type { MembershipRepository } from "@/modules/memberships/membership-repository";
 import { validateRoleAssignmentAuthority } from "@/modules/roles/role-assignment-rules";
@@ -94,25 +98,33 @@ export const assignRoleCommand = async ({
     };
   }
 
-  const assignment = await memberships.assignRole({
-    id: idFactory(),
-    tenantId: actor.tenantId,
-    membershipId: parsed.data.membershipId,
-    roleKey: parsed.data.roleKey,
-    scopeType: parsed.data.scopeType,
-    scopeId: parsed.data.scopeId,
-  });
+  const assignmentId = idFactory();
 
-  await audit.append({
-    tenantId: actor.tenantId,
-    clientId: assignment.scopeType === "client" ? assignment.scopeId : undefined,
-    actorUserId: actor.userId,
-    action: "RoleAssigned",
-    decision: "allowed",
-    targetType: "role_assignment",
-    targetId: assignment.id,
-    reason: parsed.data.reason,
-  });
+  return runAuditAtomicMutation({
+    resources: transactionalResources([audit, memberships]),
+    operation: async () => {
+      await audit.append({
+        tenantId: actor.tenantId,
+        clientId:
+          parsed.data.scopeType === "client" ? parsed.data.scopeId : undefined,
+        actorUserId: actor.userId,
+        action: "RoleAssigned",
+        decision: "allowed",
+        targetType: "role_assignment",
+        targetId: assignmentId,
+        reason: parsed.data.reason,
+      });
 
-  return { ok: true as const, value: assignment };
+      const assignment = await memberships.assignRole({
+        id: assignmentId,
+        tenantId: actor.tenantId,
+        membershipId: parsed.data.membershipId,
+        roleKey: parsed.data.roleKey,
+        scopeType: parsed.data.scopeType,
+        scopeId: parsed.data.scopeId,
+      });
+
+      return { ok: true as const, value: assignment };
+    },
+  });
 };

@@ -1,5 +1,9 @@
 import { z } from "zod";
-import type { AuditSink } from "@/modules/audit/audit-service";
+import {
+  runAuditAtomicMutation,
+  transactionalResources,
+  type AuditSink,
+} from "@/modules/audit/audit-service";
 import type { AuthorizationActor } from "@/modules/authorization/evaluator";
 import { PERMISSIONS } from "@/modules/authorization/permission-catalog";
 import type { ClientRepository } from "@/modules/clients/client-repository";
@@ -106,51 +110,59 @@ export const inviteInternalMemberCommand = async ({
         return { ok: true as const, value: existing };
       }
 
-      const createdAt = requestedAt;
-      const expiresAt = new Date(createdAt);
-      expiresAt.setDate(expiresAt.getDate() + 7);
+      return runAuditAtomicMutation({
+        resources: transactionalResources([audit, invitations]),
+        operation: async () => {
+          const createdAt = requestedAt;
+          const expiresAt = new Date(createdAt);
+          expiresAt.setDate(expiresAt.getDate() + 7);
 
-      const invitation = await invitations.create({
-        id: idFactory(),
-        tenantId: actor.tenantId,
-        invitedEmail: parsed.data.email,
-        membershipType: "internal",
-        roleKey: parsed.data.roleKey,
-        clientIds: scopeDecision.clientIds,
-        token: tokenFactory(),
-        expiresAt: expiresAt.toISOString(),
-        createdBy: actor.userId,
-        deliveryState: "queued",
-        idempotencyKey: parsed.data.idempotencyKey,
+          const invitationId = idFactory();
+          const invitationToken = tokenFactory();
+
+          await audit.append({
+            tenantId: actor.tenantId,
+            clientId: scopeDecision.clientIds[0],
+            actorUserId: actor.userId,
+            action: "TenantMembershipInvited",
+            decision: "allowed",
+            targetType: "invitation",
+            targetId: invitationId,
+          });
+          await audit.append({
+            tenantId: actor.tenantId,
+            clientId: scopeDecision.clientIds[0],
+            actorUserId: actor.userId,
+            action: "RoleAssigned",
+            decision: "allowed",
+            targetType: "role_assignment_intent",
+            targetId: `${invitationId}:${parsed.data.roleKey}`,
+            reason: "intent_pending_acceptance",
+          });
+
+          const invitation = await invitations.create({
+            id: invitationId,
+            tenantId: actor.tenantId,
+            invitedEmail: parsed.data.email,
+            membershipType: "internal",
+            roleKey: parsed.data.roleKey,
+            clientIds: scopeDecision.clientIds,
+            token: invitationToken,
+            expiresAt: expiresAt.toISOString(),
+            createdBy: actor.userId,
+            deliveryState: "queued",
+            idempotencyKey: parsed.data.idempotencyKey,
+          });
+
+          const delivery = await dispatcher.sendInternalInvitation(invitation);
+          const delivered = await invitations.markDeliveryState(
+            invitation.id,
+            delivery.ok ? "sent" : "failed",
+          );
+
+          return { ok: true as const, value: delivered ?? invitation };
+        },
       });
-
-      const delivery = await dispatcher.sendInternalInvitation(invitation);
-      const delivered = await invitations.markDeliveryState(
-        invitation.id,
-        delivery.ok ? "sent" : "failed",
-      );
-
-      await audit.append({
-        tenantId: actor.tenantId,
-        clientId: scopeDecision.clientIds[0],
-        actorUserId: actor.userId,
-        action: "TenantMembershipInvited",
-        decision: "allowed",
-        targetType: "invitation",
-        targetId: invitation.id,
-      });
-      await audit.append({
-        tenantId: actor.tenantId,
-        clientId: scopeDecision.clientIds[0],
-        actorUserId: actor.userId,
-        action: "RoleAssigned",
-        decision: "allowed",
-        targetType: "role_assignment_intent",
-        targetId: `${invitation.id}:${parsed.data.roleKey}`,
-        reason: "intent_pending_acceptance",
-      });
-
-      return { ok: true as const, value: delivered ?? invitation };
     },
   });
 };

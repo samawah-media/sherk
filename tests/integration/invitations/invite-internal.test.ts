@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { InMemoryAuditSink } from "@/modules/audit/audit-service";
+import { FailingAuditSink, InMemoryAuditSink } from "@/modules/audit/audit-service";
 import { InMemoryClientRepository } from "@/modules/clients/client-repository";
 import { LocalInvitationEmailDispatcher } from "@/modules/invitations/email-dispatcher";
 import { InMemoryInvitationRepository } from "@/modules/invitations/invitation-repository";
@@ -102,6 +102,33 @@ describe("invite internal member command", () => {
       }),
     );
   });
+
+  it("fails closed without creating an invitation when allowed audit append fails", async () => {
+    const invitations = new InMemoryInvitationRepository();
+    const dispatcher = new LocalInvitationEmailDispatcher();
+
+    await expect(
+      inviteInternalMemberCommand({
+        actor: tenantAdminA.authorizationActor,
+        clients: seededClients(),
+        invitations,
+        audit: new FailingAuditSink(),
+        dispatcher,
+        input: {
+          email: "internal-a@example.test",
+          roleKey: "account_manager",
+          clientIds: [clientA.id],
+          idempotencyKey: "invite-internal-fail",
+        },
+        idFactory: () => "inv_internal_fail",
+        tokenFactory: () => "token_internal_fail",
+        now: () => new Date("2026-06-24T08:00:00.000Z"),
+      }),
+    ).rejects.toThrow("AUDIT_APPEND_FAILED");
+
+    expect(await invitations.listByTenant(clientA.tenantId)).toEqual([]);
+    expect(dispatcher.sent).toEqual([]);
+  });
 });
 
 describe("accept internal invitation command", () => {
@@ -160,6 +187,45 @@ describe("accept internal invitation command", () => {
         expect.objectContaining({ action: "TenantMembershipActivated" }),
         expect.objectContaining({ action: "InvitationAccepted" }),
       ]),
+    );
+  });
+
+  it("fails closed without activating membership, role, or invitation status when audit append fails", async () => {
+    const invitations = new InMemoryInvitationRepository([
+      {
+        id: "inv_internal_audit_fail",
+        tenantId: clientA.tenantId,
+        invitedEmail: assignedInternalA.session.email,
+        membershipType: "internal",
+        roleKey: "account_manager",
+        clientIds: [clientA.id],
+        status: "pending",
+        token: "token_internal_audit_fail",
+        expiresAt: "2026-07-01T08:00:00.000Z",
+        createdBy: tenantAdminA.session.userId,
+        createdAt: "2026-06-24T08:00:00.000Z",
+        deliveryState: "sent",
+      },
+    ]);
+    const memberships = new InMemoryMembershipRepository();
+
+    await expect(
+      acceptInternalInvitationCommand({
+        session: assignedInternalA.session,
+        invitationId: "inv_internal_audit_fail",
+        invitations,
+        memberships,
+        audit: new FailingAuditSink(),
+        membershipIdFactory: () => "tm_internal_audit_fail",
+        roleAssignmentIdFactory: () => "ra_internal_audit_fail",
+        now: () => new Date("2026-06-24T09:00:00.000Z"),
+      }),
+    ).rejects.toThrow("AUDIT_APPEND_FAILED");
+
+    expect(await memberships.listTenantMemberships(clientA.tenantId)).toEqual([]);
+    expect(await memberships.listRoleAssignments(clientA.tenantId)).toEqual([]);
+    expect((await invitations.findById("inv_internal_audit_fail"))?.status).toBe(
+      "pending",
     );
   });
 });

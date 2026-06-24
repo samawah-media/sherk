@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { InMemoryAuditSink } from "@/modules/audit/audit-service";
+import { FailingAuditSink, InMemoryAuditSink } from "@/modules/audit/audit-service";
 import { InMemoryClientRepository } from "@/modules/clients/client-repository";
 import { LocalInvitationEmailDispatcher } from "@/modules/invitations/email-dispatcher";
 import { InMemoryInvitationRepository } from "@/modules/invitations/invitation-repository";
@@ -22,6 +22,18 @@ const seededClients = () =>
       revision: 1,
     },
   ]);
+
+class FailingCreateInvitationRepository extends InMemoryInvitationRepository {
+  override async create(): Promise<never> {
+    throw new Error("INVITATION_CREATE_FAILED");
+  }
+}
+
+class FailingActivateClientMembershipRepository extends InMemoryMembershipRepository {
+  override async activateClientMembership(): Promise<never> {
+    throw new Error("CLIENT_MEMBERSHIP_ACTIVATION_FAILED");
+  }
+}
 
 describe("invite client member command", () => {
   it("creates a pending one-client client invitation and audit intent", async () => {
@@ -123,6 +135,62 @@ describe("invite client member command", () => {
         decision: "denied",
       }),
     );
+  });
+
+  it("fails closed without creating a client invitation when allowed audit append fails", async () => {
+    const invitations = new InMemoryInvitationRepository();
+    const dispatcher = new LocalInvitationEmailDispatcher();
+
+    await expect(
+      inviteClientMemberCommand({
+        actor: tenantAdminA.authorizationActor,
+        clients: seededClients(),
+        invitations,
+        audit: new FailingAuditSink(),
+        dispatcher,
+        input: {
+          email: "client-viewer-a@example.test",
+          roleKey: "client_viewer",
+          clientId: clientA.id,
+          idempotencyKey: "invite-client-fail",
+        },
+        idFactory: () => "inv_client_fail",
+        tokenFactory: () => "token_client_fail",
+        now: () => new Date("2026-06-24T08:00:00.000Z"),
+      }),
+    ).rejects.toThrow("AUDIT_APPEND_FAILED");
+
+    expect(await invitations.listByTenant(clientA.tenantId)).toEqual([]);
+    expect(dispatcher.sent).toEqual([]);
+  });
+
+  it("rolls back audit when client invitation creation fails", async () => {
+    const audit = new InMemoryAuditSink();
+    const invitations = new FailingCreateInvitationRepository();
+    const dispatcher = new LocalInvitationEmailDispatcher();
+
+    await expect(
+      inviteClientMemberCommand({
+        actor: tenantAdminA.authorizationActor,
+        clients: seededClients(),
+        invitations,
+        audit,
+        dispatcher,
+        input: {
+          email: "client-viewer-a@example.test",
+          roleKey: "client_viewer",
+          clientId: clientA.id,
+          idempotencyKey: "invite-client-mutation-fail",
+        },
+        idFactory: () => "inv_client_mutation_fail",
+        tokenFactory: () => "token_client_mutation_fail",
+        now: () => new Date("2026-06-24T08:00:00.000Z"),
+      }),
+    ).rejects.toThrow("INVITATION_CREATE_FAILED");
+
+    expect(audit.events).toEqual([]);
+    expect(dispatcher.sent).toEqual([]);
+    expect(await invitations.listByTenant(clientA.tenantId)).toEqual([]);
   });
 });
 
@@ -235,5 +303,91 @@ describe("accept client invitation command", () => {
         ],
       },
     });
+  });
+
+  it("fails closed without activating client membership, role, or invitation status when audit append fails", async () => {
+    const invitations = new InMemoryInvitationRepository([
+      {
+        id: "inv_client_audit_fail",
+        tenantId: clientA.tenantId,
+        invitedEmail: "client-viewer-a@example.test",
+        membershipType: "client",
+        roleKey: "client_viewer",
+        clientIds: [clientA.id],
+        status: "pending",
+        token: "token_client_audit_fail",
+        expiresAt: "2026-07-01T08:00:00.000Z",
+        createdBy: tenantAdminA.session.userId,
+        createdAt: "2026-06-24T08:00:00.000Z",
+        deliveryState: "sent",
+      },
+    ]);
+    const memberships = new InMemoryMembershipRepository();
+
+    await expect(
+      acceptClientInvitationCommand({
+        session: {
+          userId: "client_viewer_a",
+          email: "client-viewer-a@example.test",
+        },
+        invitationId: "inv_client_audit_fail",
+        invitations,
+        memberships,
+        audit: new FailingAuditSink(),
+        membershipIdFactory: () => "cm_client_audit_fail",
+        roleAssignmentIdFactory: () => "ra_client_audit_fail",
+        now: () => new Date("2026-06-24T09:00:00.000Z"),
+      }),
+    ).rejects.toThrow("AUDIT_APPEND_FAILED");
+
+    expect(await memberships.listClientMemberships(clientA.tenantId)).toEqual([]);
+    expect(await memberships.listRoleAssignments(clientA.tenantId)).toEqual([]);
+    expect((await invitations.findById("inv_client_audit_fail"))?.status).toBe(
+      "pending",
+    );
+  });
+
+  it("rolls back audit and invitation status when client membership activation fails", async () => {
+    const audit = new InMemoryAuditSink();
+    const invitations = new InMemoryInvitationRepository([
+      {
+        id: "inv_client_mutation_fail",
+        tenantId: clientA.tenantId,
+        invitedEmail: "client-viewer-a@example.test",
+        membershipType: "client",
+        roleKey: "client_viewer",
+        clientIds: [clientA.id],
+        status: "pending",
+        token: "token_client_mutation_fail",
+        expiresAt: "2026-07-01T08:00:00.000Z",
+        createdBy: tenantAdminA.session.userId,
+        createdAt: "2026-06-24T08:00:00.000Z",
+        deliveryState: "sent",
+      },
+    ]);
+    const memberships = new FailingActivateClientMembershipRepository();
+
+    await expect(
+      acceptClientInvitationCommand({
+        session: {
+          userId: "client_viewer_a",
+          email: "client-viewer-a@example.test",
+        },
+        invitationId: "inv_client_mutation_fail",
+        invitations,
+        memberships,
+        audit,
+        membershipIdFactory: () => "cm_client_mutation_fail",
+        roleAssignmentIdFactory: () => "ra_client_mutation_fail",
+        now: () => new Date("2026-06-24T09:00:00.000Z"),
+      }),
+    ).rejects.toThrow("CLIENT_MEMBERSHIP_ACTIVATION_FAILED");
+
+    expect(audit.events).toEqual([]);
+    expect(await memberships.listClientMemberships(clientA.tenantId)).toEqual([]);
+    expect(await memberships.listRoleAssignments(clientA.tenantId)).toEqual([]);
+    expect((await invitations.findById("inv_client_mutation_fail"))?.status).toBe(
+      "pending",
+    );
   });
 });
