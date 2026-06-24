@@ -174,18 +174,21 @@ select throws_ok(
     )
   $$,
   '42501',
+  'new row violates row-level security policy for table "audit_events"',
   'cross-tenant audit insert is denied by RLS'
 );
 
 select throws_ok(
   $$ update public.audit_events set reason = 'mutated' $$,
   '42501',
+  'audit_events are append-only',
   'authenticated users cannot update append-only audit events'
 );
 
 select throws_ok(
   $$ delete from public.audit_events $$,
   '42501',
+  'audit_events are append-only',
   'authenticated users cannot delete append-only audit events'
 );
 

@@ -57,6 +57,22 @@ create table if not exists public.audit_events (
   occurred_at timestamptz not null default now()
 );
 
+create or replace function public.f001_prevent_audit_event_mutation()
+returns trigger
+language plpgsql
+as $$
+begin
+  raise exception 'audit_events are append-only'
+    using errcode = '42501';
+end;
+$$;
+
+drop trigger if exists f001_audit_events_append_only on public.audit_events;
+create trigger f001_audit_events_append_only
+before update or delete on public.audit_events
+for each statement
+execute function public.f001_prevent_audit_event_mutation();
+
 alter table public.tenants enable row level security;
 alter table public.tenant_memberships enable row level security;
 alter table public.client_memberships enable row level security;
