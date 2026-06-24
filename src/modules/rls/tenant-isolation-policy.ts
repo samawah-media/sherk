@@ -23,9 +23,13 @@ export type TenantSelectPolicy =
   | "own_client_membership_select"
   | "role_assignment_select_by_tenant_member"
   | "audit_select_tenant_management"
-  | "client_basics_select_authorized_scope";
+  | "client_basics_select_authorized_scope"
+  | "invitation_select_tenant_management";
 
-export type TenantInsertPolicy = "audit_insert_own_tenant" | "client_insert_tenant_management";
+export type TenantInsertPolicy =
+  | "audit_insert_own_tenant"
+  | "client_insert_tenant_management"
+  | "invitation_insert_tenant_management";
 
 const hasActiveTenantMembership = (actor: RlsActor, tenantId: string) =>
   actor.tenantMemberships.some(
@@ -48,10 +52,6 @@ export const canSelectTenantScopedRow = ({
     return false;
   }
 
-  if (policy !== "client_basics_select_authorized_scope") {
-    return true;
-  }
-
   const hasTenantManagement = actor.roleAssignments?.some(
     (assignment) =>
       assignment.tenantId === row.tenantId &&
@@ -60,6 +60,17 @@ export const canSelectTenantScopedRow = ({
       assignment.scopeId === row.tenantId &&
       isActive(assignment.status),
   );
+
+  if (
+    policy === "audit_select_tenant_management" ||
+    policy === "invitation_select_tenant_management"
+  ) {
+    return Boolean(hasTenantManagement);
+  }
+
+  if (policy !== "client_basics_select_authorized_scope") {
+    return true;
+  }
 
   const hasClientRole = Boolean(row.clientId) &&
     actor.roleAssignments?.some(

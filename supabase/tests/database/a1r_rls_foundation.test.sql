@@ -4,7 +4,7 @@ create extension if not exists pgtap with schema extensions;
 
 set search_path = public, extensions;
 
-select plan(20);
+select plan(25);
 
 -- These grants are test-local and rolled back at the end. They isolate RLS
 -- behavior from the separate Data API grant decision documented for A1R.
@@ -15,6 +15,7 @@ grant select on public.client_memberships to authenticated;
 grant select, insert, update on public.clients to authenticated;
 grant select on public.role_assignments to authenticated;
 grant select, insert, update, delete on public.audit_events to authenticated;
+grant select, insert, update on public.invitations to authenticated;
 
 select ok(
   (select relrowsecurity from pg_class where oid = 'public.tenants'::regclass),
@@ -46,6 +47,11 @@ select ok(
   'audit_events has RLS enabled'
 );
 
+select ok(
+  (select relrowsecurity from pg_class where oid = 'public.invitations'::regclass),
+  'invitations has RLS enabled'
+);
+
 insert into public.tenants (id, name)
 values
   ('00000000-0000-4000-8000-000000000001', 'Tenant A'),
@@ -70,6 +76,12 @@ values
     '00000000-0000-4000-8000-000000000001',
     '00000000-0000-4000-8000-000000000203',
     'disabled'
+  ),
+  (
+    '00000000-0000-4000-8000-000000000104',
+    '00000000-0000-4000-8000-000000000001',
+    '00000000-0000-4000-8000-000000000204',
+    'active'
   );
 
 insert into public.clients (id, tenant_id, name, slug, created_by)
@@ -200,7 +212,38 @@ values (
 select is(
   (select count(*)::integer from public.audit_events),
   1,
-  'active Tenant A member can insert and read Tenant A audit event'
+  'tenant administrator can insert and read Tenant A audit event'
+);
+
+insert into public.invitations (
+  id,
+  tenant_id,
+  invited_email,
+  membership_type,
+  role_key,
+  client_ids,
+  token_hash,
+  expires_at,
+  created_by,
+  delivery_state
+)
+values (
+  '00000000-0000-4000-8000-000000000701',
+  '00000000-0000-4000-8000-000000000001',
+  'internal-a@example.test',
+  'internal',
+  'account_manager',
+  array['00000000-0000-4000-8000-000000000401'::uuid],
+  'hashed-token-a',
+  now() + interval '7 days',
+  '00000000-0000-4000-8000-000000000201',
+  'sent'
+);
+
+select is(
+  (select count(*)::integer from public.invitations),
+  1,
+  'tenant administrator can insert and read internal invitations'
 );
 
 select throws_ok(
@@ -241,6 +284,52 @@ select throws_ok(
   '42501',
   'audit_events are append-only',
   'authenticated users cannot delete append-only audit events'
+);
+
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000204', true);
+
+select is(
+  (select count(*)::integer from public.audit_events),
+  0,
+  'active tenant member without management role cannot read internal audit events'
+);
+
+select is(
+  (select count(*)::integer from public.invitations),
+  0,
+  'active tenant member without management role cannot read internal invitations'
+);
+
+select throws_ok(
+  $$
+    insert into public.invitations (
+      id,
+      tenant_id,
+      invited_email,
+      membership_type,
+      role_key,
+      client_ids,
+      token_hash,
+      expires_at,
+      created_by
+    )
+    values (
+      '00000000-0000-4000-8000-000000000702',
+      '00000000-0000-4000-8000-000000000001',
+      'denied-internal@example.test',
+      'internal',
+      'account_manager',
+      array['00000000-0000-4000-8000-000000000401'::uuid],
+      'hashed-token-denied',
+      now() + interval '7 days',
+      '00000000-0000-4000-8000-000000000204'
+    )
+  $$,
+  '42501',
+  'new row violates row-level security policy for table "invitations"',
+  'active tenant member without management role cannot insert invitations'
 );
 
 reset role;

@@ -11,7 +11,6 @@ describe("tenant isolation RLS foundation", () => {
     "own_membership_select",
     "own_client_membership_select",
     "role_assignment_select_by_tenant_member",
-    "audit_select_tenant_management",
   ] as const)("allows %s only inside an active tenant membership", (policy) => {
     expect(
       canSelectTenantScopedRow({
@@ -26,6 +25,29 @@ describe("tenant isolation RLS foundation", () => {
         actor: tenantAdminA.rlsActor,
         row: { tenantId: tenantB.id },
         policy,
+      }),
+    ).toBe(false);
+  });
+
+  it("allows audit_select_tenant_management only for tenant management", () => {
+    const actor = {
+      ...tenantAdminA.rlsActor,
+      roleAssignments: tenantAdminA.authorizationActor.roleAssignments,
+    };
+
+    expect(
+      canSelectTenantScopedRow({
+        actor,
+        row: { tenantId: tenantA.id },
+        policy: "audit_select_tenant_management",
+      }),
+    ).toBe(true);
+
+    expect(
+      canSelectTenantScopedRow({
+        actor,
+        row: { tenantId: tenantB.id },
+        policy: "audit_select_tenant_management",
       }),
     ).toBe(false);
   });
