@@ -9,10 +9,38 @@ Last updated: 2026-06-24
 | Feature | F-001A Secure Client Foundation |
 | Worktree | `D:\code - projects\shrek-platform-f001a` |
 | Branch | `feat/f001a-secure-client-foundation` |
-| Current allowed stage | A6 - Membership and Role Lifecycle |
-| Status | A6 COMPLETE AND VERIFIED |
-| Next gate | Stop before Phase 7 Role-Aware Navigation |
-| Owner decision required | Required before any broad role-aware navigation, Phase 7, Phase 8 verification, deploy, or production Supabase work |
+| Current allowed stage | Phase 6 Stabilization and Owner Gate Reconciliation only |
+| Status | STABILIZED — PENDING OWNER APPROVAL |
+| Next gate | Owner review of T037-T083; stop before T084-T103 and Phase 7 |
+| Owner decision required | Required before accepting T037-T083, starting T084-T103, Phase 7, deploy, merge, or production Supabase work |
+
+## Owner Gate - 2026-06-24 Stabilization Only
+
+Owner decision for this round:
+
+- Stabilization and Full E2E reconciliation only.
+- T037-T083 are classified as `EXECUTED — PENDING OWNER REVIEW`.
+- T037-T083 are not finally accepted in this worktree.
+- T084-T103 and Phase 7 were not started.
+- No merge to `main` was performed.
+
+Evidence:
+
+- `evidence/f001a/phase-6-stabilization-report-2026-06-24.md`
+- `evidence/f001a/owner-gate-2026-06-24.md`
+
+Latest stabilization verification:
+
+- `npm run lint`: passed, exit 0.
+- `npm run typecheck`: passed, exit 0.
+- `npm run test:unit`: passed, 10 files and 30 tests, exit 0.
+- `npm run test:integration`: passed, 13 files and 32 tests, exit 0.
+- `npm run test:component`: passed, 6 files and 16 tests, exit 0.
+- `npm run test:rls`: passed, simulator 5 files / 16 tests and pgTAP 1 file / 29 tests, exit 0.
+- `npm run test:e2e`: passed, 30 tests, exit 0.
+- `npm run secret:scan`: passed, no high-confidence secrets found, exit 0.
+- `npm run build`: passed, 10 app routes generated, exit 0.
+- `npm audit --audit-level=high`: passed, zero high/critical findings; two moderate PostCSS findings remain deferred, exit 0.
 
 ## Stage Status
 
