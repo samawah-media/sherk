@@ -2,11 +2,11 @@
 
 ## Status
 
-Blocked.
+Fully verified.
 
-A1 remains functionally complete, but it is not fully verified against a real local Supabase/PostgreSQL stack yet. The blocker is environmental: Docker is not available in the current shell, so the local Supabase stack cannot be started and `supabase db reset` / `supabase test db` cannot be executed.
+A1 has now been verified against a real local Supabase/PostgreSQL stack. The previous blocker was resolved by enabling WSL2/Docker Desktop. The local database migrations replay successfully from a clean reset, and actual pgTAP RLS tests pass.
 
-This checkpoint intentionally does not approve A1 for A2. It records A1R readiness findings only.
+This checkpoint approves A1R only. It does not approve starting A2; owner approval is still required before crossing that gate.
 
 ## Scope Guard
 
@@ -22,90 +22,97 @@ This checkpoint intentionally does not approve A1 for A2. It records A1R readine
 
 - Worktree: `D:\code - projects\shrek-platform-f001a`
 - Branch: `feat/f001a-secure-client-foundation`
-- Latest commit reviewed: `3e9ac1a docs(F-001A): record checkpoint A1 evidence`
-- Initial git status: clean
+- Initial A1R resumed status: Docker blocked previously; A2 not started.
 
 ## Tooling Readiness
 
 | Check | Result | Evidence |
-| --- | --- | --- |
-| Node.js | Pass | `v24.12.0` |
-| npm | Pass | `11.6.2` |
-| Supabase CLI pinned via npx | Pass | `npx supabase@2.107.0 --version` returned `2.107.0` |
-| Docker CLI | Partial | Docker Desktop 4.79.0 is installed under the user profile; `docker.exe` works by full path but is not on this shell's PATH |
-| WSL fallback | Blocked | `wsl -l -v` reports WSL is not installed |
-| Docker engine | Blocked | Docker Desktop status remains `starting`, and Docker Desktop reports WSL is not installed |
-| Local Supabase stack | Not run | Requires a running Docker Linux engine |
-| `supabase db reset` | Blocked | `npx supabase@2.107.0 db reset --local --no-seed` reached Docker inspection and failed because Docker daemon/pipe is unavailable |
-| `supabase test db` | Blocked | `npm run test:rls:db` reached the Supabase CLI but failed to connect to local Postgres |
-
-## Existing A1 Verification Commands
-
-| Command | Exit Code | Result |
 | --- | ---: | --- |
-| `npm run lint` | 0 | Passed |
-| `npm run typecheck` | 0 | Passed |
-| `npm run test:unit` | 0 | 5 files, 15 tests passed |
-| `npm run test:integration` | 0 | 2 files, 4 tests passed |
-| `npm run test:rls:simulator` | 0 | 2 files, 7 tests passed; simulator/Vitest only |
-| `npm run test:rls:db` | 1 | Blocked: local Postgres connection failed because Supabase local stack is unavailable |
-| `npm run test:component` | 0 | 2 files, 3 tests passed |
-| `npm run secret:scan` | 0 | No high-confidence secrets found |
-| `npm run build` | 0 | Next.js production build passed |
+| Docker CLI | Pass | `docker version` returned client `29.5.3`. |
+| Docker engine | Pass | `docker version` returned Docker Desktop server `29.5.3`. |
+| Docker Desktop status | Pass | `docker desktop status` returned `running`. |
+| WSL2 backend | Pass | `docker info` reported Linux/WSL2 kernel `6.18.33.1-microsoft-standard-WSL2`. |
+| Local Supabase stack | Pass | `npx supabase@2.107.0 start` started local development database. |
+| Supabase CLI pinned via npx | Pass | Commands used `npx supabase@2.107.0`. |
 
-## Current Supabase Project State
+## Reset Reproducibility
 
-- `supabase/migrations/202606230001_f001a_identity_security_foundation.sql` exists.
-- `supabase/migrations/202606230002_f001a_rls_helpers_and_policies.sql` exists.
-- `supabase/config.toml` exists and disables seed loading for A1R reset focus.
-- `supabase/tests/database/a1r_rls_foundation.test.sql` exists.
-- Actual pgTAP RLS tests are prepared but have not passed against PostgreSQL yet.
+The local Supabase database reset was run twice after the A1R migration fix:
 
-## RLS Verification Gap
+```powershell
+npx supabase@2.107.0 db reset --local --no-seed
+npx supabase@2.107.0 db reset --local --no-seed
+```
 
-`npm run test:rls:simulator` runs the Vitest RLS simulator project. These tests are useful fast checks, but they do not prove that PostgreSQL RLS policies behave correctly after migrations are applied to a real Supabase database. `npm run test:rls` now runs the simulator first, then the pgTAP database test command.
+Both runs passed and applied:
 
-Required next verification remains:
+- `202606230001_f001a_identity_security_foundation.sql`
+- `202606230002_f001a_rls_helpers_and_policies.sql`
 
-1. Make Docker available in the shell.
-2. Start the local Supabase stack with the pinned CLI.
-3. Run `supabase db reset` from a clean local database.
-4. Repeat `supabase db reset` to prove reproducibility.
-5. Confirm migrations apply without seed dependency.
-6. Review and run pgTAP tests under `supabase/tests/database/`.
-7. Run `supabase test db`.
-8. Keep simulator and actual database RLS checks separated in reporting.
+Expected idempotent notices were observed for missing policies/triggers during clean replay.
 
-## Supabase Documentation Notes
+## RLS Verification
 
-- Supabase CLI local development uses Docker to run the local stack.
-- `supabase db reset` applies local migrations from a clean local database.
-- `supabase test db` executes pgTAP tests against the local database.
-- Supabase has announced stricter Data API exposure defaults in 2026. Future migration review should verify whether explicit `GRANT` statements are needed for any table intentionally exposed through the Data API, separate from RLS row filtering.
+`npm run test:rls:db` passed against the real local PostgreSQL database:
 
-## A1 Acceptance Status
+- 1 pgTAP file.
+- 15 database RLS tests.
+- Result: PASS.
 
-Conditionally verified at the application/simulator level, blocked for real database verification.
+`npm run test:rls` also passed:
 
-A1 is not fully verified until actual Supabase/PostgreSQL RLS tests pass with:
+- RLS simulator: 2 files, 7 tests.
+- Database pgTAP: 1 file, 15 tests.
+- Result: PASS.
 
-- `supabase db reset`
-- `npm run test:rls:db`
-- cross-tenant denial cases
-- disabled membership denial cases
-- audit immutability cases
-- no tenant-owned table without RLS
+Verified database behaviors include:
+
+- tenant tables have RLS enabled;
+- active Tenant A member sees Tenant A only;
+- disabled tenant membership reads no tenant rows;
+- client membership visibility is scoped;
+- role assignment visibility is tenant scoped;
+- same-tenant audit insert succeeds;
+- cross-tenant audit insert is denied by RLS;
+- audit events are append-only and reject UPDATE/DELETE with `42501`.
+
+## Fixes Made During A1R
+
+- Added `public.f001_prevent_audit_event_mutation()` and a statement-level `f001_audit_events_append_only` trigger on `public.audit_events`.
+- Updated pgTAP `throws_ok` expectations to include actual PostgreSQL error messages.
+
+## Full Verification Commands
+
+| Command | Result |
+| --- | ---: |
+| `docker version` | Pass |
+| `docker info` | Pass |
+| `docker desktop status` | Pass |
+| `npx supabase@2.107.0 db reset --local --no-seed` | Pass |
+| `npx supabase@2.107.0 db reset --local --no-seed` | Pass |
+| `npm run test:rls:db` | Pass |
+| `npm run test:rls` | Pass |
+| `npm run lint` | Pass |
+| `npm run typecheck` | Pass |
+| `npm run test:unit` | Pass |
+| `npm run test:integration` | Pass |
+| `npm run test:component` | Pass |
+| `npm run secret:scan` | Pass |
+| `npm run build` | Pass |
+
+## Runtime Note
+
+The first `db reset` attempt before `supabase start` failed with `supabase start is not running`. After starting the local stack, both required reset runs passed.
+
+The default public ECR pull path stalled while pulling the Supabase Postgres image. The successful run used `SUPABASE_INTERNAL_IMAGE_REGISTRY=docker.io` and `docker.io/supabase/postgres:17.6.1.136`. This is a local image registry source change only; no hosted Supabase project was used.
 
 ## Remaining Risks
 
-- Real PostgreSQL RLS behavior may differ from the TypeScript simulator.
-- `SECURITY DEFINER` helper functions must be reviewed against Supabase security guidance before final approval.
-- Actual policy behavior for INSERT/UPDATE/DELETE has not been proven against PostgreSQL.
-- Audit immutability has not been proven against PostgreSQL.
-- Data API grants have not been reviewed against current Supabase defaults.
+- Data API grants remain a later explicit design decision; A1R focused on direct local PostgreSQL RLS verification.
+- `SECURITY DEFINER` helper functions remain intentionally scoped to membership lookups and should continue to be reviewed when future policies are added.
 
 ## Decision
 
-Do not proceed to A2 yet.
+A1R is FULLY VERIFIED.
 
-Resume A1R only after Docker or a compatible container runtime is available locally. Hosted production Supabase must not be used as a substitute. Any hosted development project requires owner approval before use.
+Stop here and wait for owner approval before starting A2 Client Foundation.

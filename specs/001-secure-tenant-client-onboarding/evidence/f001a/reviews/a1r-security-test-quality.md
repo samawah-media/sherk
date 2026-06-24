@@ -2,43 +2,45 @@
 
 ## Status
 
-Blocked pending Docker-enabled local Supabase verification.
+Passed.
 
 ## Findings
 
-### HIGH - RLS proof is not yet backed by a passing PostgreSQL run
+No blocking security/test quality findings remain for A1R.
 
-`npm run test:rls:simulator` passes, and `supabase/tests/database/a1r_rls_foundation.test.sql` now exists for pgTAP coverage. `npm run test:rls:db` still fails before executing assertions because the local Supabase/PostgreSQL stack is unavailable.
+### RESOLVED - RLS proof is backed by a passing PostgreSQL run
 
-The scripts are now split so:
+`npm run test:rls` now runs both the simulator and the actual database pgTAP checks successfully:
 
-- `test:rls:simulator` runs the fast simulator checks.
-- `test:rls:db` runs actual database pgTAP checks.
-- `test:rls` runs both and should remain blocked until Docker/Supabase local stack is available.
+- `test:rls:simulator`: 2 files, 7 tests passed.
+- `test:rls:db`: 1 pgTAP file, 15 tests passed.
 
-### HIGH - Cross-tenant denial has not been proven in PostgreSQL
+### RESOLVED - Cross-tenant denial is proven in PostgreSQL
 
-Simulator tests cover the intended behavior, but actual PostgreSQL RLS behavior still needs pgTAP coverage for tenant A versus tenant B reads, writes, and updates.
+The pgTAP suite verifies that an active Tenant A member can see Tenant A only and that a cross-tenant audit insert is denied by RLS with SQLSTATE `42501`.
 
-### HIGH - Audit immutability has not been proven in PostgreSQL
+### RESOLVED - Audit immutability is proven in PostgreSQL
 
-The migration defines `audit_events` and policies, but actual user-level UPDATE and DELETE denial must be tested in PostgreSQL before A1 can be fully accepted.
+The pgTAP suite verifies that authenticated users cannot update or delete append-only audit events. The database raises SQLSTATE `42501`.
 
-### MEDIUM - SECURITY DEFINER helper functions require final database security review
+### WATCH - SECURITY DEFINER helper functions need continued review as scope grows
 
-The migration uses `SECURITY DEFINER` helper functions for membership checks. This can be valid for RLS helper patterns, but final A1R must verify function ownership, execution grants, search path, and that the functions do not expose unintended access.
+The current helper functions are narrowly scoped to active tenant/client membership checks and use an explicit `search_path`. Future policies should continue reviewing ownership, grants, and whether helper functions are still the right boundary.
 
 ## Tests Observed
 
 | Command | Result |
 | --- | --- |
-| `npm run test:unit` | 5 files, 15 tests passed |
-| `npm run test:integration` | 2 files, 4 tests passed |
-| `npm run test:rls:simulator` | 2 files, 7 tests passed; simulator only |
-| `npm run test:rls:db` | Blocked before assertions: failed to connect to local Postgres |
-| `npm run test:component` | 2 files, 3 tests passed |
-| `npm run secret:scan` | No high-confidence secrets found |
+| `npm run test:rls:db` | Passed, 1 file and 15 tests |
+| `npm run test:rls` | Passed, simulator 7 tests plus pgTAP 15 tests |
+| `npm run lint` | Passed |
+| `npm run typecheck` | Passed |
+| `npm run test:unit` | Passed, 5 files and 15 tests |
+| `npm run test:integration` | Passed, 2 files and 4 tests |
+| `npm run test:component` | Passed, 2 files and 3 tests |
+| `npm run secret:scan` | Passed, no high-confidence secrets found |
+| `npm run build` | Passed |
 
 ## Acceptance Impact
 
-A1R should remain blocked. Do not proceed to A2 until Docker is available and actual database RLS tests pass with exit code 0.
+A1R security/test quality is approved. Stop for owner decision before A2.

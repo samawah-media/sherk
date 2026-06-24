@@ -2,32 +2,34 @@
 
 ## Status
 
-Blocked pending real local Supabase verification.
+Passed.
 
 ## Findings
 
-### HIGH - Actual migrations have not been applied to a clean local Supabase database
+No blocking database/spec compliance findings remain for A1R.
 
-`supabase db reset` could not be run because Docker is unavailable in the current shell. A1 cannot be fully accepted until migrations are applied from a clean local database at least once, and preferably twice, to prove reproducibility.
+### RESOLVED - Actual migrations apply to a clean local Supabase database
 
-### HIGH - Actual database RLS test suite is prepared but not executed successfully
+`npx supabase@2.107.0 db reset --local --no-seed` passed twice after the local Supabase stack was running. The migrations replay cleanly and reproducibly.
 
-`supabase/tests/database/a1r_rls_foundation.test.sql` now exists and targets tenant visibility, disabled membership denial, cross-tenant audit insert denial, and audit immutability. It has not passed yet because the local Supabase/PostgreSQL stack is unavailable.
+### RESOLVED - Actual database RLS test suite passes
 
-### RESOLVED - Supabase local config is present
+`npm run test:rls:db` passed against local PostgreSQL with 1 pgTAP file and 15 tests.
 
-`supabase/config.toml` was created with the pinned Supabase CLI without `--force`, preserving existing migrations. Seed loading is disabled so A1R reset focuses on migration replay and RLS verification.
+### RESOLVED - Audit immutability is enforced in PostgreSQL
 
-### MEDIUM - Data API grants need explicit review
+`public.audit_events` now has a statement-level append-only trigger that raises `42501` on UPDATE or DELETE. The pgTAP suite verifies both mutation paths.
 
-The current migrations enable RLS and define policies, but they do not include explicit role grants. Because Supabase is moving toward stricter Data API exposure defaults, later review should decide whether tables are intended to be accessible through the Data API and add deliberate grants where appropriate.
+### WATCH - Data API grants need explicit future review
+
+The current migrations enable RLS and define policies. They do not grant broad Data API access. Future features that intentionally expose tables through Supabase Data API must add deliberate grants and keep RLS enabled.
 
 ## Scope Check
 
-- No A2 tables were identified in the reviewed migrations.
-- No invitation lifecycle implementation was identified in the reviewed migrations.
-- Existing migrations stay within identity, membership, roles, permissions, and audit foundation scope.
+- No A2 tables were introduced.
+- No invitation lifecycle implementation was introduced.
+- Existing migrations remain within identity, membership, roles, permissions, and audit foundation scope.
 
 ## Acceptance Impact
 
-A1 remains conditionally verified only. Database/spec compliance cannot be approved until actual local Supabase migration replay and pgTAP verification pass.
+A1R database/spec compliance is approved. Do not proceed to A2 until owner approval is given.
