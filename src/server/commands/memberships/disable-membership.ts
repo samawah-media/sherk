@@ -1,7 +1,7 @@
 import { z } from "zod";
 import {
   runAuditAtomicMutation,
-  transactionalResources,
+  createRequiredAuditAtomicUnitOfWork,
   type AuditSink,
 } from "@/modules/audit/audit-service";
 import type { AuthorizationActor } from "@/modules/authorization/evaluator";
@@ -75,7 +75,7 @@ export const disableMembershipCommand = async ({
       }
 
       return runAuditAtomicMutation({
-        resources: transactionalResources([audit, memberships, invitations]),
+        transaction: createRequiredAuditAtomicUnitOfWork([audit, memberships, invitations]),
         operation: async () => {
           const pendingInvitations = parsed.data.invitedEmail
         ? (await invitations.listByTenant(actor.tenantId)).filter(
@@ -149,7 +149,7 @@ export const disableMembershipCommand = async ({
             : [];
 
           if (!disabled) {
-            return { ok: false as const, error: "CONFLICT_RETRY" as const };
+            throw new Error("MEMBERSHIP_DISABLE_FAILED");
           }
 
           return {

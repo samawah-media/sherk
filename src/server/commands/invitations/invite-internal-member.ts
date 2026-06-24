@@ -1,7 +1,7 @@
 import { z } from "zod";
 import {
   runAuditAtomicMutation,
-  transactionalResources,
+  createRequiredAuditAtomicUnitOfWork,
   type AuditSink,
 } from "@/modules/audit/audit-service";
 import type { AuthorizationActor } from "@/modules/authorization/evaluator";
@@ -111,7 +111,7 @@ export const inviteInternalMemberCommand = async ({
       }
 
       return runAuditAtomicMutation({
-        resources: transactionalResources([audit, invitations]),
+        transaction: createRequiredAuditAtomicUnitOfWork([audit, invitations]),
         operation: async () => {
           const createdAt = requestedAt;
           const expiresAt = new Date(createdAt);

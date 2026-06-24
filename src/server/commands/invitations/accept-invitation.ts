@@ -1,6 +1,6 @@
 import {
   runAuditAtomicMutation,
-  transactionalResources,
+  createRequiredAuditAtomicUnitOfWork,
   type AuditSink,
 } from "@/modules/audit/audit-service";
 import type { AuthSession } from "@/modules/auth/session";
@@ -104,7 +104,7 @@ export const acceptInternalInvitationCommand = async ({
   }
 
   return runAuditAtomicMutation({
-    resources: transactionalResources([audit, invitations, memberships]),
+    transaction: createRequiredAuditAtomicUnitOfWork([audit, invitations, memberships]),
     operation: async () => {
       const tenantMembershipId = membershipIdFactory();
       const roleAssignmentIds = invitation.clientIds.map(() =>
@@ -157,10 +157,14 @@ export const acceptInternalInvitationCommand = async ({
         acceptedAt: acceptedAt.toISOString(),
       });
 
+      if (!accepted) {
+        throw new Error("INVITATION_ACCEPT_FAILED");
+      }
+
       return {
         ok: true as const,
         value: {
-          invitation: accepted ?? invitation,
+          invitation: accepted,
           tenantMembership,
           roleAssignments,
         },
@@ -248,7 +252,7 @@ export const acceptClientInvitationCommand = async ({
   }
 
   return runAuditAtomicMutation({
-    resources: transactionalResources([audit, invitations, memberships]),
+    transaction: createRequiredAuditAtomicUnitOfWork([audit, invitations, memberships]),
     operation: async () => {
       const clientMembershipId = membershipIdFactory();
       const roleAssignmentId = roleAssignmentIdFactory();
@@ -294,10 +298,14 @@ export const acceptClientInvitationCommand = async ({
         acceptedAt: acceptedAt.toISOString(),
       });
 
+      if (!accepted) {
+        throw new Error("INVITATION_ACCEPT_FAILED");
+      }
+
       return {
         ok: true as const,
         value: {
-          invitation: accepted ?? invitation,
+          invitation: accepted,
           clientMembership,
           roleAssignments: [roleAssignment],
         },

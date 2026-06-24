@@ -1,5 +1,9 @@
 import { z } from "zod";
-import type { AuditSink } from "@/modules/audit/audit-service";
+import {
+  createRequiredAuditAtomicUnitOfWork,
+  runAuditAtomicMutation,
+  type AuditSink,
+} from "@/modules/audit/audit-service";
 import type { AuthorizationActor } from "@/modules/authorization/evaluator";
 import { PERMISSIONS } from "@/modules/authorization/permission-catalog";
 import type { MembershipRepository } from "@/modules/memberships/membership-repository";
@@ -34,31 +38,36 @@ export const removeClientScopeCommand = async ({
     resource: { tenantId: actor.tenantId, clientId: parsed.data.clientId },
     audit,
     operation: async () => {
-      const result = await memberships.removeClientScope({
-        tenantId: actor.tenantId,
-        membershipId: parsed.data.membershipId,
-        clientId: parsed.data.clientId,
+      return runAuditAtomicMutation({
+        transaction: createRequiredAuditAtomicUnitOfWork([audit, memberships]),
+        operation: async () => {
+          await audit.append({
+            tenantId: actor.tenantId,
+            clientId: parsed.data.clientId,
+            actorUserId: actor.userId,
+            action: "ClientScopeRemoved",
+            decision: "allowed",
+            targetType: "membership",
+            targetId: parsed.data.membershipId,
+            reason: parsed.data.reason,
+          });
+
+          const result = await memberships.removeClientScope({
+            tenantId: actor.tenantId,
+            membershipId: parsed.data.membershipId,
+            clientId: parsed.data.clientId,
+          });
+
+          if (
+            !result.clientMembership &&
+            result.revokedRoleAssignments.length === 0
+          ) {
+            throw new Error("CLIENT_SCOPE_MUTATION_FAILED");
+          }
+
+          return { ok: true as const, value: result };
+        },
       });
-
-      if (
-        !result.clientMembership &&
-        result.revokedRoleAssignments.length === 0
-      ) {
-        return { ok: false as const, error: "CLIENT_ACCESS_DENIED" as const };
-      }
-
-      await audit.append({
-        tenantId: actor.tenantId,
-        clientId: parsed.data.clientId,
-        actorUserId: actor.userId,
-        action: "ClientScopeRemoved",
-        decision: "allowed",
-        targetType: "membership",
-        targetId: parsed.data.membershipId,
-        reason: parsed.data.reason,
-      });
-
-      return { ok: true as const, value: result };
     },
   });
 };

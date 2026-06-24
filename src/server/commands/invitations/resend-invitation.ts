@@ -1,7 +1,7 @@
 import { z } from "zod";
 import {
   runAuditAtomicMutation,
-  transactionalResources,
+  createRequiredAuditAtomicUnitOfWork,
   type AuditSink,
 } from "@/modules/audit/audit-service";
 import type { AuthorizationActor } from "@/modules/authorization/evaluator";
@@ -84,7 +84,7 @@ export const resendInvitationCommand = async ({
       }
 
       return runAuditAtomicMutation({
-        resources: transactionalResources([audit, invitations]),
+        transaction: createRequiredAuditAtomicUnitOfWork([audit, invitations]),
         operation: async () => {
           const expiresAt = new Date(requestedAt);
           expiresAt.setDate(expiresAt.getDate() + 7);
@@ -117,7 +117,7 @@ export const resendInvitationCommand = async ({
           });
 
           if (!superseded) {
-            return { ok: false as const, error: "CONFLICT_RETRY" as const };
+            throw new Error("INVITATION_SUPERSEDE_FAILED");
           }
 
           const replacement = await invitations.create({

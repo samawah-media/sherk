@@ -21,6 +21,17 @@ export type TransactionalResource = {
   restore: (snapshot: unknown) => void;
 };
 
+export type AuditAtomicUnitOfWork = {
+  run<T>(operation: () => Promise<T>): Promise<T>;
+};
+
+const isTransactionalResource = (
+  resource: unknown,
+): resource is TransactionalResource =>
+  Boolean(resource) &&
+  typeof (resource as TransactionalResource).snapshot === "function" &&
+  typeof (resource as TransactionalResource).restore === "function";
+
 export class InMemoryAuditSink implements AuditSink {
   readonly events: AuditEvent[] = [];
 
@@ -45,37 +56,61 @@ export class FailingAuditSink implements AuditSink {
   async append() {
     throw new Error("AUDIT_APPEND_FAILED");
   }
+
+  snapshot() {
+    return undefined;
+  }
+
+  restore() {
+    // No state to restore; this sink is used to prove append failure rollback.
+  }
+}
+
+export class NonTransactionalAuditSink implements AuditSink {
+  async append() {
+    throw new Error("NON_TRANSACTIONAL_AUDIT_USED");
+  }
 }
 
 export const runAuditAtomicMutation = async <T>({
-  resources,
+  transaction,
   operation,
 }: {
-  resources: TransactionalResource[];
+  transaction: AuditAtomicUnitOfWork;
   operation: () => Promise<T>;
-}) => {
-  const snapshots = resources.map((resource) => resource.snapshot());
+}) => transaction.run(operation);
 
-  try {
-    return await operation();
-  } catch (error) {
-    for (let index = resources.length - 1; index >= 0; index -= 1) {
-      resources[index].restore(snapshots[index]);
-    }
-
-    throw error;
-  }
-};
-
-export const transactionalResources = (
+export const createRequiredAuditAtomicUnitOfWork = (
   resources: unknown[],
-): TransactionalResource[] =>
-  resources.filter(
-    (resource): resource is TransactionalResource =>
-      Boolean(resource) &&
-      typeof (resource as TransactionalResource).snapshot === "function" &&
-      typeof (resource as TransactionalResource).restore === "function",
+): AuditAtomicUnitOfWork => {
+  const nonTransactionalIndex = resources.findIndex(
+    (resource) => !isTransactionalResource(resource),
   );
+
+  if (nonTransactionalIndex !== -1) {
+    throw new Error("AUDIT_TRANSACTION_REQUIRED");
+  }
+
+  const transactionalResources = resources as TransactionalResource[];
+
+  return {
+    async run<T>(operation: () => Promise<T>) {
+      const snapshots = transactionalResources.map((resource) =>
+        resource.snapshot(),
+      );
+
+      try {
+        return await operation();
+      } catch (error) {
+        for (let index = transactionalResources.length - 1; index >= 0; index -= 1) {
+          transactionalResources[index].restore(snapshots[index]);
+        }
+
+        throw error;
+      }
+    },
+  };
+};
 
 export const createAuditGuard = (sink: AuditSink) => ({
   async runSensitive<T>({

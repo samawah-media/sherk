@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { FailingAuditSink, InMemoryAuditSink } from "@/modules/audit/audit-service";
+import {
+  FailingAuditSink,
+  InMemoryAuditSink,
+  NonTransactionalAuditSink,
+} from "@/modules/audit/audit-service";
 import { InMemoryClientRepository } from "@/modules/clients/client-repository";
 import { LocalInvitationEmailDispatcher } from "@/modules/invitations/email-dispatcher";
 import { InMemoryInvitationRepository } from "@/modules/invitations/invitation-repository";
@@ -345,6 +349,48 @@ describe("accept client invitation command", () => {
     expect((await invitations.findById("inv_client_audit_fail"))?.status).toBe(
       "pending",
     );
+  });
+
+  it("fails closed before activation when audit sink is not transactional", async () => {
+    const invitations = new InMemoryInvitationRepository([
+      {
+        id: "inv_client_non_transactional",
+        tenantId: clientA.tenantId,
+        invitedEmail: "client-viewer-a@example.test",
+        membershipType: "client",
+        roleKey: "client_viewer",
+        clientIds: [clientA.id],
+        status: "pending",
+        token: "token_client_non_transactional",
+        expiresAt: "2026-07-01T08:00:00.000Z",
+        createdBy: tenantAdminA.session.userId,
+        createdAt: "2026-06-24T08:00:00.000Z",
+        deliveryState: "sent",
+      },
+    ]);
+    const memberships = new InMemoryMembershipRepository();
+
+    await expect(
+      acceptClientInvitationCommand({
+        session: {
+          userId: "client_viewer_a",
+          email: "client-viewer-a@example.test",
+        },
+        invitationId: "inv_client_non_transactional",
+        invitations,
+        memberships,
+        audit: new NonTransactionalAuditSink(),
+        membershipIdFactory: () => "cm_client_non_transactional",
+        roleAssignmentIdFactory: () => "ra_client_non_transactional",
+        now: () => new Date("2026-06-24T09:00:00.000Z"),
+      }),
+    ).rejects.toThrow("AUDIT_TRANSACTION_REQUIRED");
+
+    expect(await memberships.listClientMemberships(clientA.tenantId)).toEqual([]);
+    expect(await memberships.listRoleAssignments(clientA.tenantId)).toEqual([]);
+    expect(
+      (await invitations.findById("inv_client_non_transactional"))?.status,
+    ).toBe("pending");
   });
 
   it("rolls back audit and invitation status when client membership activation fails", async () => {

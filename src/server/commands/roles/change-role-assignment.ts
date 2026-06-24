@@ -1,7 +1,7 @@
 import { z } from "zod";
 import {
   runAuditAtomicMutation,
-  transactionalResources,
+  createRequiredAuditAtomicUnitOfWork,
   type AuditSink,
 } from "@/modules/audit/audit-service";
 import type { AuthorizationActor } from "@/modules/authorization/evaluator";
@@ -105,7 +105,7 @@ export const changeRoleAssignmentCommand = async ({
   }
 
   return runAuditAtomicMutation({
-    resources: transactionalResources([audit, memberships]),
+    transaction: createRequiredAuditAtomicUnitOfWork([audit, memberships]),
     operation: async () => {
       await audit.append({
         tenantId: actor.tenantId,
@@ -127,7 +127,7 @@ export const changeRoleAssignmentCommand = async ({
       });
 
       if (!updated) {
-        return { ok: false as const, error: "CONFLICT_RETRY" as const };
+        throw new Error("ROLE_ASSIGNMENT_MUTATION_FAILED");
       }
 
       return { ok: true as const, value: updated };

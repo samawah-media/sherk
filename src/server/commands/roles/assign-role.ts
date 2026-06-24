@@ -1,7 +1,7 @@
 import { z } from "zod";
 import {
   runAuditAtomicMutation,
-  transactionalResources,
+  createRequiredAuditAtomicUnitOfWork,
   type AuditSink,
 } from "@/modules/audit/audit-service";
 import type { AuthorizationActor } from "@/modules/authorization/evaluator";
@@ -101,7 +101,7 @@ export const assignRoleCommand = async ({
   const assignmentId = idFactory();
 
   return runAuditAtomicMutation({
-    resources: transactionalResources([audit, memberships]),
+    transaction: createRequiredAuditAtomicUnitOfWork([audit, memberships]),
     operation: async () => {
       await audit.append({
         tenantId: actor.tenantId,

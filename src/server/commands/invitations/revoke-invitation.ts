@@ -1,7 +1,7 @@
 import { z } from "zod";
 import {
   runAuditAtomicMutation,
-  transactionalResources,
+  createRequiredAuditAtomicUnitOfWork,
   type AuditSink,
 } from "@/modules/audit/audit-service";
 import type { AuthorizationActor } from "@/modules/authorization/evaluator";
@@ -59,7 +59,7 @@ export const revokeInvitationCommand = async ({
       }
 
       return runAuditAtomicMutation({
-        resources: transactionalResources([audit, invitations]),
+        transaction: createRequiredAuditAtomicUnitOfWork([audit, invitations]),
         operation: async () => {
           await audit.append({
             tenantId: invitation.tenantId,
@@ -79,10 +79,7 @@ export const revokeInvitationCommand = async ({
           });
 
           if (!revoked) {
-            return {
-              ok: false as const,
-              error: "INVITATION_NOT_FOUND" as const,
-            };
+            throw new Error("INVITATION_REVOKE_FAILED");
           }
 
           return { ok: true as const, value: revoked };
