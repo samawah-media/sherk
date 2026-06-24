@@ -1,9 +1,9 @@
 export function InternalInviteForm() {
   return (
-    <form aria-label="Ø¯Ø¹ÙˆØ© Ø¹Ø¶Ùˆ Ø¯Ø§Ø®Ù„ÙŠ">
+    <form aria-label="دعوة عضو داخلي">
       <div className="grid gap-4">
         <label className="grid gap-2 text-sm font-medium">
-          Ø¨Ø±ÙŠØ¯ Ø§Ù„Ø¹Ø¶Ùˆ
+          بريد العضو
           <input
             className="rounded-md border border-border bg-background px-3 py-2"
             name="email"
@@ -12,19 +12,19 @@ export function InternalInviteForm() {
           />
         </label>
         <label className="grid gap-2 text-sm font-medium">
-          Ø§Ù„Ø¯ÙˆØ±
+          الدور
           <select
             className="rounded-md border border-border bg-background px-3 py-2"
             name="roleKey"
             required
           >
-            <option value="account_manager">Ù…Ø¯ÙŠØ± Ø­Ø³Ø§Ø¨</option>
-            <option value="content_writer">ÙƒØ§ØªØ¨ Ù…Ø­ØªÙˆÙ‰</option>
-            <option value="designer">Ù…ØµÙ…Ù…</option>
+            <option value="account_manager">مدير حساب</option>
+            <option value="content_writer">كاتب محتوى</option>
+            <option value="designer">مصمم</option>
           </select>
         </label>
         <label className="grid gap-2 text-sm font-medium">
-          Ù†Ø·Ø§Ù‚ Ø§Ù„Ø¹Ù…ÙŠÙ„
+          نطاق العميل
           <select
             className="rounded-md border border-border bg-background px-3 py-2"
             name="clientIds"
@@ -37,7 +37,7 @@ export function InternalInviteForm() {
           className="w-fit rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
           type="submit"
         >
-          Ø¥Ø±Ø³Ø§Ù„ Ø§Ù„Ø¯Ø¹ÙˆØ©
+          إرسال الدعوة
         </button>
       </div>
     </form>
@@ -47,25 +47,25 @@ export function InternalInviteForm() {
 export function InternalInviteEmptyState() {
   return (
     <section
-      aria-label="Ø­Ø§Ù„Ø© Ø§Ù„Ø¯Ø¹ÙˆØ§Øª Ø§Ù„ÙØ§Ø±ØºØ©"
+      aria-label="حالة الدعوات الفارغة"
       className="rounded-lg border border-dashed border-border p-6"
     >
-      <h2 className="text-lg font-semibold">Ù„Ø§ ØªÙˆØ¬Ø¯ Ø¯Ø¹ÙˆØ§Øª Ø¯Ø§Ø®Ù„ÙŠØ© Ø¨Ø¹Ø¯</h2>
+      <h2 className="text-lg font-semibold">لا توجد دعوات داخلية بعد</h2>
       <p className="mt-2 text-sm text-muted">
-        Ø£Ø±Ø³Ù„ Ø¯Ø¹ÙˆØ© Ù„Ø¹Ø¶Ùˆ Ø¯Ø§Ø®Ù„ÙŠ Ù…Ø¹ ØªØ­Ø¯ÙŠØ¯ Ø§Ù„Ø¹Ù…ÙŠÙ„ Ø§Ù„Ù…Ø³Ù…ÙˆØ­ Ù„Ù‡.
+        أرسل دعوة لعضو داخلي مع تحديد العميل المسموح له.
       </p>
     </section>
   );
 }
 
 export function InternalInviteLoadingState() {
-  return <p className="text-sm text-muted">Ø¬Ø§Ø±ÙŠ ØªØ¬Ù‡ÙŠØ² Ø§Ù„Ø¯Ø¹ÙˆØ©...</p>;
+  return <p className="text-sm text-muted">جاري تجهيز الدعوة...</p>;
 }
 
 export function InternalInviteSaveFailure() {
   return (
     <p role="alert" className="text-sm font-medium text-destructive">
-      ØªØ¹Ø°Ø± Ø¥Ø±Ø³Ø§Ù„ Ø§Ù„Ø¯Ø¹ÙˆØ©. Ø±Ø§Ø¬Ø¹ Ø§Ù„Ø¨ÙŠØ§Ù†Ø§Øª ÙˆØ­Ø§ÙˆÙ„ Ù…Ø±Ø© Ø£Ø®Ø±Ù‰.
+      تعذر إرسال الدعوة. راجع البيانات وحاول مرة أخرى.
     </p>
   );
 }

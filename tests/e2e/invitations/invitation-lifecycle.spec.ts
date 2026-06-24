@@ -1,13 +1,11 @@
 import { expect, test } from "@playwright/test";
 
-test.setTimeout(60_000);
-
 const states = [
-  ["expired", "Ø§Ù†ØªÙ‡Øª ØµÙ„Ø§Ø­ÙŠØ© Ø§Ù„Ø¯Ø¹ÙˆØ©"],
-  ["revoked", "Ø§Ù„Ø¯Ø¹ÙˆØ© ØºÙŠØ± Ù…ØªØ§Ø­Ø©"],
-  ["superseded", "ÙŠÙˆØ¬Ø¯ Ø±Ø§Ø¨Ø· Ø£Ø­Ø¯Ø«"],
-  ["used", "ØªÙ… Ø§Ø³ØªØ®Ø¯Ø§Ù… Ø§Ù„Ø¯Ø¹ÙˆØ©"],
-  ["mismatch", "Ø§Ù„Ø¨Ø±ÙŠØ¯ ØºÙŠØ± Ù…Ø·Ø§Ø¨Ù‚"],
+  ["expired", "انتهت صلاحية الدعوة"],
+  ["revoked", "الدعوة غير متاحة"],
+  ["superseded", "يوجد رابط أحدث"],
+  ["used", "تم استخدام الدعوة"],
+  ["mismatch", "البريد غير مطابق"],
 ] as const;
 
 for (const [token, heading] of states) {

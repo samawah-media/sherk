@@ -19,7 +19,15 @@ const routesToWarm = [
 
 const child = spawn(
   process.execPath,
-  ["node_modules/next/dist/bin/next", "dev", "--webpack", "-H", appHost],
+  [
+    "node_modules/next/dist/bin/next",
+    "dev",
+    "--webpack",
+    "-H",
+    appHost,
+    "-p",
+    String(appPort),
+  ],
   {
     env: process.env,
     stdio: "inherit",

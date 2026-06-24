@@ -13,13 +13,13 @@ describe("internal invitation UI", () => {
     render(<InternalInviteForm />);
 
     expect(
-      screen.getByRole("form", { name: "Ø¯Ø¹ÙˆØ© Ø¹Ø¶Ùˆ Ø¯Ø§Ø®Ù„ÙŠ" }),
+      screen.getByRole("form", { name: "دعوة عضو داخلي" }),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Ø¨Ø±ÙŠØ¯ Ø§Ù„Ø¹Ø¶Ùˆ")).toBeRequired();
-    expect(screen.getByLabelText("Ø§Ù„Ø¯ÙˆØ±")).toBeRequired();
-    expect(screen.getByLabelText("Ù†Ø·Ø§Ù‚ Ø§Ù„Ø¹Ù…ÙŠÙ„")).toBeRequired();
+    expect(screen.getByLabelText("بريد العضو")).toBeRequired();
+    expect(screen.getByLabelText("الدور")).toBeRequired();
+    expect(screen.getByLabelText("نطاق العميل")).toBeRequired();
     expect(
-      screen.getByRole("button", { name: "Ø¥Ø±Ø³Ø§Ù„ Ø§Ù„Ø¯Ø¹ÙˆØ©" }),
+      screen.getByRole("button", { name: "إرسال الدعوة" }),
     ).toBeInTheDocument();
   });
 
@@ -32,10 +32,8 @@ describe("internal invitation UI", () => {
       </>,
     );
 
-    expect(
-      screen.getByText("Ù„Ø§ ØªÙˆØ¬Ø¯ Ø¯Ø¹ÙˆØ§Øª Ø¯Ø§Ø®Ù„ÙŠØ© Ø¨Ø¹Ø¯"),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Ø¬Ø§Ø±ÙŠ ØªØ¬Ù‡ÙŠØ² Ø§Ù„Ø¯Ø¹ÙˆØ©...")).toBeInTheDocument();
+    expect(screen.getByText("لا توجد دعوات داخلية بعد")).toBeInTheDocument();
+    expect(screen.getByText("جاري تجهيز الدعوة...")).toBeInTheDocument();
     expect(screen.getByRole("alert")).toBeInTheDocument();
     expect(screen.queryByText("Client B")).not.toBeInTheDocument();
   });
@@ -53,6 +51,6 @@ describe("assigned clients UI", () => {
   it("renders no-assigned-client state", () => {
     render(<AssignedClients clients={[]} />);
 
-    expect(screen.getByText("Ù„Ø§ ÙŠÙˆØ¬Ø¯ Ø¹Ù…Ù„Ø§Ø¡ Ù…Ø³Ù†Ø¯ÙˆÙ†")).toBeInTheDocument();
+    expect(screen.getByText("لا يوجد عملاء مسندون")).toBeInTheDocument();
   });
 });
