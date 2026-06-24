@@ -1,9 +1,41 @@
 import type { AuditSink } from "@/modules/audit/audit-service";
 import type { AuthSession } from "@/modules/auth/session";
+import {
+  evaluateInvitationAcceptance,
+  type InvitationLifecycleError,
+} from "@/modules/invitations/invitation-state-machine";
 import type { InvitationRepository } from "@/modules/invitations/invitation-repository";
 import type { MembershipRepository } from "@/modules/memberships/membership-repository";
+import {
+  allowAllRateLimiter,
+  type RateLimiter,
+} from "@/modules/security/rate-limit";
 
-const normalizeEmail = (email: string) => email.trim().toLowerCase();
+const auditInvitationDenial = async ({
+  audit,
+  tenantId,
+  clientId,
+  actorUserId,
+  invitationId,
+  reason,
+}: {
+  audit: AuditSink;
+  tenantId: string;
+  clientId?: string;
+  actorUserId: string;
+  invitationId: string;
+  reason: InvitationLifecycleError | "VALIDATION_FAILED" | "RATE_LIMITED";
+}) =>
+  audit.append({
+    tenantId,
+    clientId,
+    actorUserId,
+    action: "InvitationAcceptanceDenied",
+    decision: "denied",
+    targetType: "invitation",
+    targetId: invitationId,
+    reason,
+  });
 
 export const acceptInternalInvitationCommand = async ({
   session,
@@ -11,9 +43,10 @@ export const acceptInternalInvitationCommand = async ({
   invitations,
   memberships,
   audit,
-  membershipIdFactory = crypto.randomUUID,
-  roleAssignmentIdFactory = crypto.randomUUID,
+  membershipIdFactory = () => crypto.randomUUID(),
+  roleAssignmentIdFactory = () => crypto.randomUUID(),
   now = () => new Date(),
+  rateLimiter = allowAllRateLimiter,
 }: {
   session: AuthSession;
   invitationId: string;
@@ -23,49 +56,47 @@ export const acceptInternalInvitationCommand = async ({
   membershipIdFactory?: () => string;
   roleAssignmentIdFactory?: () => string;
   now?: () => Date;
+  rateLimiter?: RateLimiter;
 }) => {
+  const acceptedAt = now();
+  const rateLimit = await rateLimiter.check({
+    key: `accept:${invitationId}:${session.userId}`,
+    limit: 10,
+    windowMs: 60_000,
+    now: acceptedAt,
+  });
+
+  if (!rateLimit.ok) {
+    return { ok: false as const, error: "RATE_LIMITED" as const };
+  }
+
   const invitation = await invitations.findById(invitationId);
 
   if (!invitation || invitation.membershipType !== "internal") {
     return { ok: false as const, error: "INVITATION_NOT_FOUND" as const };
   }
 
-  if (normalizeEmail(session.email) !== normalizeEmail(invitation.invitedEmail)) {
-    await audit.append({
-      tenantId: invitation.tenantId,
-      actorUserId: session.userId,
-      action: "InvitationAcceptanceDenied",
-      decision: "denied",
-      targetType: "invitation",
-      targetId: invitation.id,
-      reason: "EMAIL_MISMATCH",
-    });
+  const decision = evaluateInvitationAcceptance({
+    invitation,
+    acceptingEmail: session.email,
+    acceptingUserId: session.userId,
+    now: acceptedAt,
+  });
 
-    return { ok: false as const, error: "EMAIL_MISMATCH" as const };
-  }
-
-  if (invitation.status === "accepted") {
+  if (decision.ok && decision.idempotent) {
     return { ok: true as const, value: invitation, idempotent: true as const };
   }
 
-  if (invitation.status !== "pending") {
-    return { ok: false as const, error: "INVITATION_NOT_FOUND" as const };
-  }
-
-  const acceptedAt = now();
-
-  if (acceptedAt > new Date(invitation.expiresAt)) {
-    await audit.append({
+  if (!decision.ok) {
+    await auditInvitationDenial({
+      audit,
       tenantId: invitation.tenantId,
       actorUserId: session.userId,
-      action: "InvitationAcceptanceDenied",
-      decision: "denied",
-      targetType: "invitation",
-      targetId: invitation.id,
-      reason: "INVITATION_EXPIRED",
+      invitationId: invitation.id,
+      reason: decision.error,
     });
 
-    return { ok: false as const, error: "INVITATION_EXPIRED" as const };
+    return { ok: false as const, error: decision.error };
   }
 
   const tenantMembership = await memberships.activateTenantMembership({
@@ -130,9 +161,10 @@ export const acceptClientInvitationCommand = async ({
   invitations,
   memberships,
   audit,
-  membershipIdFactory = crypto.randomUUID,
-  roleAssignmentIdFactory = crypto.randomUUID,
+  membershipIdFactory = () => crypto.randomUUID(),
+  roleAssignmentIdFactory = () => crypto.randomUUID(),
   now = () => new Date(),
+  rateLimiter = allowAllRateLimiter,
 }: {
   session: AuthSession;
   invitationId: string;
@@ -142,63 +174,59 @@ export const acceptClientInvitationCommand = async ({
   membershipIdFactory?: () => string;
   roleAssignmentIdFactory?: () => string;
   now?: () => Date;
+  rateLimiter?: RateLimiter;
 }) => {
+  const acceptedAt = now();
+  const rateLimit = await rateLimiter.check({
+    key: `accept:${invitationId}:${session.userId}`,
+    limit: 10,
+    windowMs: 60_000,
+    now: acceptedAt,
+  });
+
+  if (!rateLimit.ok) {
+    return { ok: false as const, error: "RATE_LIMITED" as const };
+  }
+
   const invitation = await invitations.findById(invitationId);
 
   if (!invitation || invitation.membershipType !== "client") {
     return { ok: false as const, error: "INVITATION_NOT_FOUND" as const };
   }
 
-  if (normalizeEmail(session.email) !== normalizeEmail(invitation.invitedEmail)) {
-    await audit.append({
-      tenantId: invitation.tenantId,
-      clientId: invitation.clientIds[0],
-      actorUserId: session.userId,
-      action: "InvitationAcceptanceDenied",
-      decision: "denied",
-      targetType: "invitation",
-      targetId: invitation.id,
-      reason: "EMAIL_MISMATCH",
-    });
+  const decision = evaluateInvitationAcceptance({
+    invitation,
+    acceptingEmail: session.email,
+    acceptingUserId: session.userId,
+    now: acceptedAt,
+  });
 
-    return { ok: false as const, error: "EMAIL_MISMATCH" as const };
-  }
-
-  if (invitation.status === "accepted") {
+  if (decision.ok && decision.idempotent) {
     return { ok: true as const, value: invitation, idempotent: true as const };
   }
 
-  if (invitation.status !== "pending") {
-    return { ok: false as const, error: "INVITATION_NOT_FOUND" as const };
-  }
-
-  const acceptedAt = now();
-
-  if (acceptedAt > new Date(invitation.expiresAt)) {
-    await audit.append({
+  if (!decision.ok) {
+    await auditInvitationDenial({
+      audit,
       tenantId: invitation.tenantId,
       clientId: invitation.clientIds[0],
       actorUserId: session.userId,
-      action: "InvitationAcceptanceDenied",
-      decision: "denied",
-      targetType: "invitation",
-      targetId: invitation.id,
-      reason: "INVITATION_EXPIRED",
+      invitationId: invitation.id,
+      reason: decision.error,
     });
 
-    return { ok: false as const, error: "INVITATION_EXPIRED" as const };
+    return { ok: false as const, error: decision.error };
   }
 
   const [clientId] = invitation.clientIds;
 
   if (!clientId || invitation.clientIds.length !== 1) {
-    await audit.append({
+    await auditInvitationDenial({
+      audit,
       tenantId: invitation.tenantId,
+      clientId,
       actorUserId: session.userId,
-      action: "InvitationAcceptanceDenied",
-      decision: "denied",
-      targetType: "invitation",
-      targetId: invitation.id,
+      invitationId: invitation.id,
       reason: "VALIDATION_FAILED",
     });
 

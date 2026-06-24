@@ -134,6 +134,16 @@ This guide describes how to validate F-001 after implementation. It is not a ful
 - Audit events: `ClientMemberInvited`, `RoleAssigned` with `intent_pending_acceptance`, `ClientMembershipActivated`, `InvitationAccepted`, `AuthorizationDenied`, `ClientInvitationDenied`, and `InvitationAcceptanceDenied` for safe mismatch/expiry validation.
 - Out of scope: resend, revoke, supersede lifecycle hardening, general membership/role lifecycle, role-aware navigation beyond the minimal client portal entry surface, deliverables, files, SLA, approvals, and production Supabase usage.
 
+#### A5 Evidence - 2026-06-24
+
+- Unit: `tests/unit/invitations/invitation-expiry.test.ts` verifies deterministic expiry at `expires_at`; `tests/unit/invitations/invitation-idempotency.test.ts` verifies accepted-link idempotency and replay denial.
+- Integration: `tests/integration/invitations/revoke-invitation.test.ts`, `tests/integration/invitations/resend-invitation.test.ts`, and `tests/integration/invitations/email-mismatch.test.ts` verify revoked, superseded, mismatch, and not-found behavior without membership activation.
+- Rate limit: `tests/integration/security/invitation-rate-limit.test.ts` verifies invite/resend/accept throttling returns safe `RATE_LIMITED` responses without token or email state leakage.
+- Audit: `tests/integration/audit/invitation-denial-audit.test.ts` verifies expired, revoked, superseded, already-used, and email-mismatch denial audit coverage.
+- E2E spec added: `tests/e2e/invitations/invitation-lifecycle.spec.ts` covers `/invite/[token]` safe UI states for expired, revoked, superseded, already-used, and email mismatch across desktop, mobile, and RTL projects.
+- Commands: `revokeInvitationCommand` and `resendInvitationCommand` are server-authorized and tenant/client scoped; `accept-invitation` is hardened through `src/modules/invitations/invitation-state-machine.ts`.
+- Out of scope: general membership/role lifecycle, broad role-aware navigation, deliverables, files, SLA, approvals, and production Supabase usage.
+
 ### 10. Verify Navigation
 
 - Expected Result: tenant admin sees management clients/members/audit surfaces; internal member sees assigned client/team surfaces; client viewer sees client-facing surfaces only.

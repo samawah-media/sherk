@@ -9,10 +9,10 @@ Last updated: 2026-06-24
 | Feature | F-001A Secure Client Foundation |
 | Worktree | `D:\code - projects\shrek-platform-f001a` |
 | Branch | `feat/f001a-secure-client-foundation` |
-| Current allowed stage | A4 - Client Member Invitation |
-| Status | A4 COMPLETE AND VERIFIED |
-| Next gate | Stop before Phase 5 Invitation Lifecycle Hardening |
-| Owner decision required | Required before any resend/revoke/supersede lifecycle hardening, membership/role lifecycle, or broad role-aware navigation work |
+| Current allowed stage | A5 - Invitation Lifecycle Hardening |
+| Status | A5 COMPLETE AND VERIFIED |
+| Next gate | Stop before Phase 6 Membership and Role Lifecycle |
+| Owner decision required | Required before any membership/role lifecycle, broad role-aware navigation, or Phase 6+ work |
 
 ## Stage Status
 
@@ -24,6 +24,46 @@ Last updated: 2026-06-24
 | A2 Client Foundation | COMPLETE AND VERIFIED | Evidence captured in `specs/001-secure-tenant-client-onboarding/evidence/f001a/checkpoint-a2.md`. |
 | A3 Internal Member Invitation | COMPLETE AND VERIFIED | Evidence captured in `specs/001-secure-tenant-client-onboarding/evidence/f001a/checkpoint-a3.md`. |
 | A4 Client Member Invitation | COMPLETE AND VERIFIED | Evidence captured in `specs/001-secure-tenant-client-onboarding/evidence/f001a/checkpoint-a4.md`. |
+| A5 Invitation Lifecycle Hardening | COMPLETE AND VERIFIED | Evidence captured in `specs/001-secure-tenant-client-onboarding/evidence/f001a/checkpoint-a5.md`. |
+
+## Latest A5 Checkpoint
+
+A5 Invitation Lifecycle Hardening completed and verified on 2026-06-24 after owner approval.
+
+Implemented scope:
+
+- Invitation state machine for pending, accepted, revoked, superseded, derived expired, email mismatch, already-used, and not-found decisions.
+- Deterministic 7-day expiry boundary; acceptance is denied at `expires_at`.
+- Idempotent accepted-link refresh for the same accepting user without duplicate memberships, roles, or audit side effects.
+- Replay denial for already-used invitations by another user.
+- Revoke invitation command with tenant/client scoped authorization and audit.
+- Resend invitation command with supersession before replacement creation, local email dispatch capture, and audit.
+- Accept-invitation hardening for expired, revoked, superseded, already-used, email mismatch, idempotency, and replay.
+- In-memory rate limiter abstraction integrated into invite, resend, and accept command paths.
+- Safe invitation lifecycle UI states at `/invite/[token]`.
+
+Out of scope and not started:
+
+- General membership/role lifecycle.
+- Broad role-aware navigation.
+- Deliverables, contracts, files, SLA, approvals, Kanban, and production Supabase usage.
+
+Verification results:
+
+- Targeted unit tests: passed, 2 files and 4 tests.
+- Targeted integration tests: passed, 5 files and 11 tests.
+- Targeted component smoke: passed, 1 file and 3 tests.
+- `npx supabase@2.107.0 db reset --local --no-seed`: passed with Docker Hub registry override.
+- `npm run test:rls:db`: passed, 1 pgTAP file and 29 tests.
+- `npm run test:unit`: passed, 9 files and 26 tests.
+- `npm run test:integration`: passed, 10 files and 26 tests.
+- `npm run test:rls`: passed; simulator 5 files / 16 tests and pgTAP 1 file / 29 tests.
+- `npm run test:component`: passed, 5 files and 13 tests.
+- `npm run lint`: passed.
+- `npm run typecheck`: passed.
+- `npm run secret:scan`: passed, no high-confidence secrets found.
+- `npm run build`: passed.
+- Targeted lifecycle E2E: passed, 15 tests across desktop, mobile, and RTL projects.
 
 ## Latest A4 Checkpoint
 

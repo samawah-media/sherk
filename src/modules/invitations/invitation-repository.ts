@@ -18,6 +18,10 @@ export type InvitationRecord = {
   createdAt: string;
   acceptedBy?: string;
   acceptedAt?: string;
+  revokedBy?: string;
+  revokedAt?: string;
+  supersededBy?: string;
+  supersededAt?: string;
   deliveryState: InvitationDeliveryState;
   idempotencyKey?: string;
 };
@@ -61,6 +65,16 @@ export type InvitationRepository = {
     invitationId: string;
     acceptedBy: string;
     acceptedAt: string;
+  }): Promise<InvitationRecord | undefined>;
+  revoke(input: {
+    invitationId: string;
+    revokedBy: string;
+    revokedAt: string;
+  }): Promise<InvitationRecord | undefined>;
+  supersede(input: {
+    invitationId: string;
+    supersededBy: string;
+    supersededAt: string;
   }): Promise<InvitationRecord | undefined>;
   listByTenant(tenantId: string): Promise<InvitationRecord[]>;
 };
@@ -182,6 +196,66 @@ export class InMemoryInvitationRepository implements InvitationRepository {
 
     this.invitations.set(accepted.id, accepted);
     return accepted;
+  }
+
+  async revoke(input: {
+    invitationId: string;
+    revokedBy: string;
+    revokedAt: string;
+  }) {
+    const invitation = this.invitations.get(input.invitationId);
+
+    if (!invitation) {
+      return undefined;
+    }
+
+    if (invitation.status === "revoked") {
+      return invitation;
+    }
+
+    if (invitation.status !== "pending") {
+      return undefined;
+    }
+
+    const revoked: InvitationRecord = {
+      ...invitation,
+      status: "revoked",
+      revokedBy: input.revokedBy,
+      revokedAt: input.revokedAt,
+    };
+
+    this.invitations.set(revoked.id, revoked);
+    return revoked;
+  }
+
+  async supersede(input: {
+    invitationId: string;
+    supersededBy: string;
+    supersededAt: string;
+  }) {
+    const invitation = this.invitations.get(input.invitationId);
+
+    if (!invitation) {
+      return undefined;
+    }
+
+    if (invitation.status === "superseded") {
+      return invitation;
+    }
+
+    if (invitation.status !== "pending") {
+      return undefined;
+    }
+
+    const superseded: InvitationRecord = {
+      ...invitation,
+      status: "superseded",
+      supersededBy: input.supersededBy,
+      supersededAt: input.supersededAt,
+    };
+
+    this.invitations.set(superseded.id, superseded);
+    return superseded;
   }
 
   async listByTenant(tenantId: string) {

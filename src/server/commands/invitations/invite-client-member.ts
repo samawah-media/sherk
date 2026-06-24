@@ -9,6 +9,10 @@ import {
 } from "@/modules/invitations/client-invitation-rules";
 import type { InvitationEmailDispatcher } from "@/modules/invitations/email-dispatcher";
 import type { InvitationRepository } from "@/modules/invitations/invitation-repository";
+import {
+  allowAllRateLimiter,
+  type RateLimiter,
+} from "@/modules/security/rate-limit";
 import { runAuthorizedSensitiveOperation } from "@/server/authorization/server-authorization";
 
 const inviteClientMemberSchema = z.object({
@@ -25,9 +29,10 @@ export const inviteClientMemberCommand = async ({
   audit,
   dispatcher,
   input,
-  idFactory = crypto.randomUUID,
-  tokenFactory = crypto.randomUUID,
+  idFactory = () => crypto.randomUUID(),
+  tokenFactory = () => crypto.randomUUID(),
   now = () => new Date(),
+  rateLimiter = allowAllRateLimiter,
 }: {
   actor: AuthorizationActor;
   clients: ClientRepository;
@@ -38,11 +43,24 @@ export const inviteClientMemberCommand = async ({
   idFactory?: () => string;
   tokenFactory?: () => string;
   now?: () => Date;
+  rateLimiter?: RateLimiter;
 }) => {
   const parsed = inviteClientMemberSchema.safeParse(input);
 
   if (!parsed.success) {
     return { ok: false as const, error: "VALIDATION_FAILED" as const };
+  }
+
+  const requestedAt = now();
+  const rateLimit = await rateLimiter.check({
+    key: `invite:${actor.userId}:${parsed.data.email.toLowerCase()}`,
+    limit: 10,
+    windowMs: 60_000,
+    now: requestedAt,
+  });
+
+  if (!rateLimit.ok) {
+    return { ok: false as const, error: "RATE_LIMITED" as const };
   }
 
   return runAuthorizedSensitiveOperation({
@@ -86,7 +104,7 @@ export const inviteClientMemberCommand = async ({
         return { ok: true as const, value: existing };
       }
 
-      const createdAt = now();
+      const createdAt = requestedAt;
       const expiresAt = new Date(createdAt);
       expiresAt.setDate(expiresAt.getDate() + 7);
 
