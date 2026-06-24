@@ -1,4 +1,9 @@
-import type { RoleKey, TenantMembership, RoleAssignment } from "./membership";
+import type {
+  ClientMembership,
+  RoleKey,
+  RoleAssignment,
+  TenantMembership,
+} from "./membership";
 
 export type MembershipRepository = {
   findTenantMembership(input: {
@@ -10,6 +15,12 @@ export type MembershipRepository = {
     tenantId: string;
     userId: string;
   }): Promise<TenantMembership>;
+  activateClientMembership(input: {
+    id: string;
+    tenantId: string;
+    clientId: string;
+    userId: string;
+  }): Promise<ClientMembership>;
   assignRole(input: {
     id: string;
     tenantId: string;
@@ -19,22 +30,30 @@ export type MembershipRepository = {
     scopeId: string;
   }): Promise<RoleAssignment>;
   listTenantMemberships(tenantId: string): Promise<TenantMembership[]>;
+  listClientMemberships(tenantId: string): Promise<ClientMembership[]>;
   listRoleAssignments(tenantId: string): Promise<RoleAssignment[]>;
 };
 
 export class InMemoryMembershipRepository implements MembershipRepository {
   private readonly tenantMemberships = new Map<string, TenantMembership>();
+  private readonly clientMemberships = new Map<string, ClientMembership>();
   private readonly roleAssignments = new Map<string, RoleAssignment>();
 
   constructor({
     tenantMemberships = [],
+    clientMemberships = [],
     roleAssignments = [],
   }: {
     tenantMemberships?: TenantMembership[];
+    clientMemberships?: ClientMembership[];
     roleAssignments?: RoleAssignment[];
   } = {}) {
     for (const membership of tenantMemberships) {
       this.tenantMemberships.set(membership.id, membership);
+    }
+
+    for (const membership of clientMemberships) {
+      this.clientMemberships.set(membership.id, membership);
     }
 
     for (const assignment of roleAssignments) {
@@ -74,6 +93,37 @@ export class InMemoryMembershipRepository implements MembershipRepository {
     return membership;
   }
 
+  async activateClientMembership(input: {
+    id: string;
+    tenantId: string;
+    clientId: string;
+    userId: string;
+  }) {
+    const existing = Array.from(this.clientMemberships.values()).find(
+      (membership) =>
+        membership.tenantId === input.tenantId &&
+        membership.clientId === input.clientId &&
+        membership.userId === input.userId,
+    );
+
+    if (existing) {
+      const activated: ClientMembership = { ...existing, status: "active" };
+      this.clientMemberships.set(activated.id, activated);
+      return activated;
+    }
+
+    const membership: ClientMembership = {
+      id: input.id,
+      tenantId: input.tenantId,
+      clientId: input.clientId,
+      userId: input.userId,
+      status: "active",
+    };
+
+    this.clientMemberships.set(membership.id, membership);
+    return membership;
+  }
+
   async assignRole(input: {
     id: string;
     tenantId: string;
@@ -103,6 +153,12 @@ export class InMemoryMembershipRepository implements MembershipRepository {
 
   async listTenantMemberships(tenantId: string) {
     return Array.from(this.tenantMemberships.values()).filter(
+      (membership) => membership.tenantId === tenantId,
+    );
+  }
+
+  async listClientMemberships(tenantId: string) {
+    return Array.from(this.clientMemberships.values()).filter(
       (membership) => membership.tenantId === tenantId,
     );
   }

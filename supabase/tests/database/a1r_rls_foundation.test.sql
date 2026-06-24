@@ -4,7 +4,7 @@ create extension if not exists pgtap with schema extensions;
 
 set search_path = public, extensions;
 
-select plan(25);
+select plan(29);
 
 -- These grants are test-local and rolled back at the end. They isolate RLS
 -- behavior from the separate Data API grant decision documented for A1R.
@@ -114,6 +114,15 @@ values (
   '00000000-0000-4000-8000-000000000001',
   '00000000-0000-4000-8000-000000000401',
   '00000000-0000-4000-8000-000000000201',
+  'active'
+);
+
+insert into public.client_memberships (id, tenant_id, client_id, auth_user_id, status)
+values (
+  '00000000-0000-4000-8000-000000000302',
+  '00000000-0000-4000-8000-000000000001',
+  '00000000-0000-4000-8000-000000000401',
+  '00000000-0000-4000-8000-000000000205',
   'active'
 );
 
@@ -246,6 +255,37 @@ select is(
   'tenant administrator can insert and read internal invitations'
 );
 
+insert into public.invitations (
+  id,
+  tenant_id,
+  invited_email,
+  membership_type,
+  role_key,
+  client_ids,
+  token_hash,
+  expires_at,
+  created_by,
+  delivery_state
+)
+values (
+  '00000000-0000-4000-8000-000000000703',
+  '00000000-0000-4000-8000-000000000001',
+  'client-viewer-a@example.test',
+  'client',
+  'client_viewer',
+  array['00000000-0000-4000-8000-000000000401'::uuid],
+  'hashed-token-client-a',
+  now() + interval '7 days',
+  '00000000-0000-4000-8000-000000000201',
+  'sent'
+);
+
+select is(
+  (select count(*)::integer from public.invitations where membership_type = 'client'),
+  1,
+  'tenant administrator can insert and read one-client client invitations'
+);
+
 select throws_ok(
   $$
     insert into public.audit_events (
@@ -340,6 +380,28 @@ select is(
   (select count(*)::integer from public.tenants),
   0,
   'disabled tenant membership cannot read tenant rows'
+);
+
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000205', true);
+
+select is(
+  (select count(*)::integer from public.clients),
+  1,
+  'client member can read only their own client basics'
+);
+
+select is(
+  (select count(*)::integer from public.audit_events),
+  0,
+  'client member cannot read internal audit events'
+);
+
+select is(
+  (select count(*)::integer from public.invitations),
+  0,
+  'client member cannot read tenant invitation records'
 );
 
 reset role;

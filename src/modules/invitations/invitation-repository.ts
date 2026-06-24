@@ -1,7 +1,7 @@
 import type { RoleKey } from "@/modules/memberships/membership";
 
 export type InvitationStatus = "pending" | "accepted" | "revoked" | "superseded";
-export type InvitationMembershipType = "internal";
+export type InvitationMembershipType = "internal" | "client";
 export type InvitationDeliveryState = "queued" | "sent" | "failed";
 
 export type InvitationRecord = {
@@ -44,6 +44,13 @@ export type InvitationRepository = {
     invitedEmail: string;
     roleKey: RoleKey;
     clientIds: string[];
+    idempotencyKey?: string;
+  }): Promise<InvitationRecord | undefined>;
+  findPendingClientInvite(input: {
+    tenantId: string;
+    invitedEmail: string;
+    roleKey: RoleKey;
+    clientId: string;
     idempotencyKey?: string;
   }): Promise<InvitationRecord | undefined>;
   markDeliveryState(
@@ -113,6 +120,28 @@ export class InMemoryInvitationRepository implements InvitationRepository {
         invitation.membershipType === "internal" &&
         invitation.status === "pending" &&
         sameClientScope(invitation.clientIds, input.clientIds) &&
+        (!input.idempotencyKey ||
+          invitation.idempotencyKey === input.idempotencyKey),
+    );
+  }
+
+  async findPendingClientInvite(input: {
+    tenantId: string;
+    invitedEmail: string;
+    roleKey: RoleKey;
+    clientId: string;
+    idempotencyKey?: string;
+  }) {
+    const invitedEmail = normalizeEmail(input.invitedEmail);
+
+    return Array.from(this.invitations.values()).find(
+      (invitation) =>
+        invitation.tenantId === input.tenantId &&
+        invitation.invitedEmail === invitedEmail &&
+        invitation.roleKey === input.roleKey &&
+        invitation.membershipType === "client" &&
+        invitation.status === "pending" &&
+        sameClientScope(invitation.clientIds, [input.clientId]) &&
         (!input.idempotencyKey ||
           invitation.idempotencyKey === input.idempotencyKey),
     );

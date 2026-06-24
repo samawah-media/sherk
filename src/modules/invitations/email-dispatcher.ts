@@ -13,6 +13,10 @@ export type InvitationEmailDispatcher = {
     ok: boolean;
     messageId?: string;
   }>;
+  sendClientInvitation(invitation: InvitationRecord): Promise<{
+    ok: boolean;
+    messageId?: string;
+  }>;
 };
 
 export class LocalInvitationEmailDispatcher
@@ -21,6 +25,14 @@ export class LocalInvitationEmailDispatcher
   readonly sent: InvitationEmail[] = [];
 
   async sendInternalInvitation(invitation: InvitationRecord) {
+    return this.capture(invitation);
+  }
+
+  async sendClientInvitation(invitation: InvitationRecord) {
+    return this.capture(invitation);
+  }
+
+  private capture(invitation: InvitationRecord) {
     this.sent.push({
       to: invitation.invitedEmail,
       invitationId: invitation.id,

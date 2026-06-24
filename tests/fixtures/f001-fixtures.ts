@@ -1,6 +1,7 @@
 import type { AuthSession } from "@/modules/auth/session";
 import type { AuthorizationActor } from "@/modules/authorization/evaluator";
 import type {
+  ClientMembership,
   RoleAssignment,
   TenantMembership,
 } from "@/modules/memberships/membership";
@@ -158,6 +159,38 @@ export const assignedInternalA = {
     userId: assignedInternalSession.userId,
     membership: assignedInternalMembership,
     roles: [assignedInternalRole],
+  }),
+};
+
+const clientViewerSession = session("client_viewer_a");
+const clientViewerMembership: ClientMembership = {
+  id: "cm_client_viewer_a",
+  tenantId: clientA.tenantId,
+  clientId: clientA.id,
+  userId: clientViewerSession.userId,
+  status: "active",
+};
+const clientViewerRole = roleAssignment({
+  id: "ra_client_viewer_a",
+  tenantId: clientA.tenantId,
+  membershipId: clientViewerMembership.id,
+  roleKey: "client_viewer",
+  scopeType: "client",
+  scopeId: clientA.id,
+  status: "active",
+});
+
+export const clientViewerA = {
+  session: clientViewerSession,
+  clientMemberships: [clientViewerMembership],
+  authorizationActor: actor({
+    userId: clientViewerSession.userId,
+    membership: tenantMembership(
+      "tm_client_viewer_context_a",
+      clientViewerSession.userId,
+      clientA.tenantId,
+    ),
+    roles: [clientViewerRole],
   }),
 };
 
