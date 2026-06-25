@@ -23,7 +23,6 @@ insert into auth.users (
   email,
   encrypted_password,
   email_confirmed_at,
-  confirmed_at,
   raw_app_meta_data,
   raw_user_meta_data,
   is_super_admin,
@@ -39,7 +38,6 @@ select
   'authenticated',
   email,
   null,
-  now(),
   now(),
   '{"provider":"email","providers":["email"]}'::jsonb,
   jsonb_build_object(
@@ -59,7 +57,6 @@ set
   raw_app_meta_data = excluded.raw_app_meta_data,
   raw_user_meta_data = excluded.raw_user_meta_data,
   email_confirmed_at = coalesce(auth.users.email_confirmed_at, excluded.email_confirmed_at),
-  confirmed_at = coalesce(auth.users.confirmed_at, excluded.confirmed_at),
   updated_at = now();
 
 with seed_identities (id, user_id, email, display_name, role_key) as (
@@ -79,7 +76,6 @@ insert into auth.identities (
   user_id,
   identity_data,
   provider,
-  email,
   created_at,
   updated_at
 )
@@ -95,7 +91,6 @@ select
     'role_key', role_key
   ),
   'email',
-  email,
   now(),
   now()
 from seed_identities
@@ -103,7 +98,6 @@ on conflict (provider_id, provider) do update
 set
   user_id = excluded.user_id,
   identity_data = excluded.identity_data,
-  email = excluded.email,
   updated_at = now();
 
 insert into public.tenants (id, name, status)
