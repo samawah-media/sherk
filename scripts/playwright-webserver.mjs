@@ -57,11 +57,12 @@ const fetchWithTimeout = async (url, timeoutMs = 90_000) => {
 
 const waitForApp = async () => {
   const deadline = Date.now() + 90_000;
+  const initialCompileTimeoutMs = 30_000;
   let lastError;
 
   while (Date.now() < deadline) {
     try {
-      await fetchWithTimeout(`${baseUrl}/`, 5_000);
+      await fetchWithTimeout(`${baseUrl}/`, initialCompileTimeoutMs);
       return;
     } catch (error) {
       lastError = error;
