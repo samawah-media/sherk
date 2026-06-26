@@ -8,15 +8,22 @@ test("role-aware navigation is RTL, labelled, and keyboard reachable", async ({
   });
 
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
-  await expect(page.getByRole("navigation", { name: "تنقل مساحة الفريق" })).toBeVisible();
-  const portfolioLink = page.getByRole("link", { name: "عملائي" });
+  const teamNavigation = page.getByRole("navigation", { name: "تنقل مساحة الفريق" });
+  await expect(teamNavigation).toBeVisible();
+  const portfolioLink = teamNavigation.getByRole("link", { name: "عملائي" });
+  await expect(portfolioLink).toBeVisible();
+  const isPortfolioLinkFocused = () =>
+    portfolioLink.evaluate((element) => element === document.activeElement);
+
   for (let index = 0; index < 6; index += 1) {
-    if (await portfolioLink.evaluate((element) => element === document.activeElement)) {
+    if (await isPortfolioLinkFocused()) {
       break;
     }
+
     await page.keyboard.press("Tab");
   }
-  await expect(portfolioLink).toBeFocused();
+
+  expect(await isPortfolioLinkFocused()).toBe(true);
 });
 
 test("client portal mobile navigation keeps primary actions visible", async ({

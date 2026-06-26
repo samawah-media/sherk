@@ -5,9 +5,13 @@ import {
 } from "@/ui/management/member-list";
 import {
   guardManagementRoute,
-  resolveRouteActor,
+  resolveRouteRuntime,
 } from "@/server/navigation/route-guards";
-import { AccessDeniedState } from "@/ui/shared/access-states";
+import {
+  AccessDeniedState,
+  MembershipDisabledState,
+  SessionExpiredState,
+} from "@/ui/shared/access-states";
 
 const members = [
   {
@@ -49,11 +53,28 @@ export default async function MembersPage({
   searchParams?: Promise<{ as?: string }>;
 }) {
   const params = await searchParams;
-  const actor = resolveRouteActor(params?.as);
-  const access = guardManagementRoute({ actor, route: "members" });
+  const runtime = await resolveRouteRuntime(params?.as);
+
+  if (!runtime.ok) {
+    if (runtime.reason === "auth_required" || runtime.reason === "session_expired") {
+      return <SessionExpiredState />;
+    }
+
+    if (runtime.reason === "membership_disabled") {
+      return <MembershipDisabledState returnHref="/sign-in" />;
+    }
+
+    return <AccessDeniedState returnHref="/sign-in" />;
+  }
+
+  const access = guardManagementRoute({ actor: runtime.actor, route: "members" });
 
   if (!access.allowed) {
-    return <AccessDeniedState />;
+    if (access.reason === "membership_disabled") {
+      return <MembershipDisabledState returnHref={access.safeReturnHref} />;
+    }
+
+    return <AccessDeniedState returnHref={access.safeReturnHref} />;
   }
 
   return (
