@@ -60,6 +60,7 @@ type ClientRow = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  revision: number | null;
 };
 
 export type RuntimeContext =
@@ -115,7 +116,7 @@ const toClientRecord = (row: ClientRow): ClientRecord => ({
   createdBy: row.created_by ?? "system",
   createdAt: row.created_at,
   updatedAt: row.updated_at,
-  revision: 1,
+  revision: row.revision ?? 1,
 });
 
 const selectActiveTenantMembership = ({
@@ -286,7 +287,7 @@ export async function resolveRuntimeContext(
       client
         .from("clients")
         .select(
-          "id, tenant_id, name, slug, status, primary_contact_name, primary_contact_email, created_by, created_at, updated_at",
+          "id, tenant_id, name, slug, status, primary_contact_name, primary_contact_email, created_by, created_at, updated_at, revision",
         )
         .eq("tenant_id", tenantSelection.membership.tenantId)
         .eq("status", "active")

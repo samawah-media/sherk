@@ -4,7 +4,7 @@ create extension if not exists pgtap with schema extensions;
 
 set search_path = public, extensions;
 
-select plan(29);
+select plan(34);
 
 -- These grants are test-local and rolled back at the end. They isolate RLS
 -- behavior from the separate Data API grant decision documented for A1R.
@@ -194,6 +194,61 @@ select is(
 );
 
 select is(
+  (
+    select count(*)::integer
+    from public.f001_create_client_write(
+      '00000000-0000-4000-8000-000000000406',
+      '00000000-0000-4000-8000-000000000603',
+      'Client Created By RPC',
+      'client-created-by-rpc',
+      'Primary Contact',
+      'rpc@example.test'
+    )
+  ),
+  1,
+  'client write RPC creates a tenant-scoped client'
+);
+
+select is(
+  (
+    select count(*)::integer
+    from public.audit_events
+    where action = 'ClientCreated'
+      and target_id = '00000000-0000-4000-8000-000000000406'
+  ),
+  1,
+  'client write RPC records ClientCreated audit event'
+);
+
+select is(
+  (
+    select revision
+    from public.f001_update_client_write(
+      '00000000-0000-4000-8000-000000000406',
+      '00000000-0000-4000-8000-000000000604',
+      'Client Updated By RPC',
+      'client-updated-by-rpc',
+      'Updated Contact',
+      'updated-rpc@example.test',
+      1
+    )
+  ),
+  2,
+  'client write RPC updates only the expected revision'
+);
+
+select is(
+  (
+    select count(*)::integer
+    from public.audit_events
+    where action = 'ClientUpdated'
+      and target_id = '00000000-0000-4000-8000-000000000406'
+  ),
+  1,
+  'client write RPC records ClientUpdated audit event'
+);
+
+select is(
   (select count(*)::integer from public.role_assignments),
   1,
   'active tenant member can see Tenant A role assignments'
@@ -219,7 +274,11 @@ values (
 );
 
 select is(
-  (select count(*)::integer from public.audit_events),
+  (
+    select count(*)::integer
+    from public.audit_events
+    where action = 'A1RTestAllowedAuditInsert'
+  ),
   1,
   'tenant administrator can insert and read Tenant A audit event'
 );
@@ -422,6 +481,23 @@ select throws_ok(
   '42501',
   'new row violates row-level security policy for table "clients"',
   'active tenant member without management role cannot insert clients'
+);
+
+select throws_ok(
+  $$
+    select *
+    from public.f001_create_client_write(
+      '00000000-0000-4000-8000-000000000407',
+      '00000000-0000-4000-8000-000000000605',
+      'Client Denied By RPC',
+      'client-denied-by-rpc',
+      null,
+      null
+    )
+  $$,
+  '42501',
+  'not authorized',
+  'active tenant member without management role cannot use client write RPC'
 );
 
 select is(
