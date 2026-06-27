@@ -1,6 +1,6 @@
 -- F-001B Cycle 2A client write workflows.
--- Adds explicit Data API grants for client writes and wraps client mutation +
--- audit append in security-invoker RPC functions so RLS still evaluates every row.
+-- Keeps direct Data API client writes closed and wraps client mutation +
+-- audit append in constrained RPC functions.
 
 alter table public.clients
 add column if not exists revision integer not null default 1;
@@ -19,14 +19,14 @@ begin
 end;
 $$;
 
-grant insert, update on public.clients to authenticated;
+revoke insert, update on public.clients from anon, authenticated;
 grant insert on public.audit_events to authenticated;
 
 create or replace function public.f001_actor_tenant_for_client_write()
 returns uuid
 language plpgsql
 stable
-security invoker
+security definer
 set search_path = public
 as $$
 declare
@@ -86,7 +86,7 @@ returns table (
   revision integer
 )
 language plpgsql
-security invoker
+security definer
 set search_path = public
 as $$
 declare
@@ -176,7 +176,7 @@ returns table (
   revision integer
 )
 language plpgsql
-security invoker
+security definer
 set search_path = public
 as $$
 declare
@@ -242,6 +242,9 @@ begin
 end;
 $$;
 
-grant execute on function public.f001_actor_tenant_for_client_write() to authenticated;
+revoke all on function public.f001_actor_tenant_for_client_write() from public, anon, authenticated;
+revoke all on function public.f001_create_client_write(uuid, uuid, text, text, text, text) from public, anon, authenticated;
+revoke all on function public.f001_update_client_write(uuid, uuid, text, text, text, text, integer) from public, anon, authenticated;
+
 grant execute on function public.f001_create_client_write(uuid, uuid, text, text, text, text) to authenticated;
 grant execute on function public.f001_update_client_write(uuid, uuid, text, text, text, text, integer) to authenticated;
