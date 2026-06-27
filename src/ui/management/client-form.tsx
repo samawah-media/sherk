@@ -1,15 +1,66 @@
+"use client";
+
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import type { ClientRecord } from "@/modules/clients/client-repository";
+import {
+  initialClientFormState,
+  type ClientFormState,
+} from "@/modules/clients/client-form-state";
+
+type ClientFormAction = (
+  previousState: ClientFormState,
+  formData: FormData,
+) => Promise<ClientFormState>;
+
+function SubmitButton({ mode }: { mode: "create" | "update" }) {
+  const { pending } = useFormStatus();
+
+  return (
+    <button
+      className="w-fit rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60"
+      disabled={pending}
+      type="submit"
+    >
+      {pending
+        ? "جار الحفظ..."
+        : mode === "create"
+          ? "حفظ العميل"
+          : "حفظ التعديلات"}
+    </button>
+  );
+}
 
 export function ClientForm({
+  action,
   client,
   mode = "create",
 }: {
+  action?: ClientFormAction;
   client?: ClientRecord;
   mode?: "create" | "update";
 }) {
+  const [state, formAction] = useActionState(
+    action ?? (async () => initialClientFormState),
+    initialClientFormState,
+  );
+
   return (
-    <form aria-label={mode === "create" ? "إنشاء عميل" : "تعديل العميل"}>
+    <form
+      action={formAction}
+      aria-label={mode === "create" ? "إنشاء عميل" : "تعديل العميل"}
+    >
       <div className="grid gap-4">
+        {mode === "update" && client ? (
+          <>
+            <input name="clientId" type="hidden" value={client.id} />
+            <input
+              name="expectedRevision"
+              type="hidden"
+              value={client.revision}
+            />
+          </>
+        ) : null}
         <label className="grid gap-2 text-sm font-medium">
           اسم العميل
           <input
@@ -17,7 +68,7 @@ export function ClientForm({
             name="name"
             required
             minLength={2}
-            defaultValue={client?.name}
+            defaultValue={state.values?.name ?? client?.name}
           />
         </label>
         <label className="grid gap-2 text-sm font-medium">
@@ -25,7 +76,9 @@ export function ClientForm({
           <input
             className="rounded-md border border-border bg-background px-3 py-2"
             name="primaryContactName"
-            defaultValue={client?.primaryContactName}
+            defaultValue={
+              state.values?.primaryContactName ?? client?.primaryContactName
+            }
           />
         </label>
         <label className="grid gap-2 text-sm font-medium">
@@ -34,15 +87,20 @@ export function ClientForm({
             className="rounded-md border border-border bg-background px-3 py-2"
             name="primaryContactEmail"
             type="email"
-            defaultValue={client?.primaryContactEmail}
+            defaultValue={
+              state.values?.primaryContactEmail ?? client?.primaryContactEmail
+            }
           />
         </label>
-        <button
-          className="w-fit rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-          type="submit"
-        >
-          {mode === "create" ? "حفظ العميل" : "حفظ التعديلات"}
-        </button>
+        {state.status === "error" && state.message ? (
+          <p
+            aria-live="polite"
+            className="rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger"
+          >
+            {state.message}
+          </p>
+        ) : null}
+        <SubmitButton mode={mode} />
       </div>
     </form>
   );

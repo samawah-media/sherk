@@ -1,13 +1,15 @@
 import {
-  canUseRouteActorFixtures,
   guardClientDetailRoute,
   guardManagementRoute,
   resolveRouteRuntime,
 } from "@/server/navigation/route-guards";
+import { updateClientAction } from "@/server/actions/clients";
 import { ClientForm } from "@/ui/management/client-form";
 import {
   AccessDeniedState,
+  MembershipDisabledState,
   ResourceNotFoundState,
+  SessionExpiredState,
 } from "@/ui/shared/access-states";
 
 export default async function EditClientPage({
@@ -20,8 +22,16 @@ export default async function EditClientPage({
   const [{ clientId }, query] = await Promise.all([params, searchParams]);
   const runtime = await resolveRouteRuntime(query?.as);
 
-  if (!runtime.ok || !canUseRouteActorFixtures()) {
-    return <AccessDeniedState />;
+  if (!runtime.ok) {
+    if (runtime.reason === "auth_required" || runtime.reason === "session_expired") {
+      return <SessionExpiredState />;
+    }
+
+    if (runtime.reason === "membership_disabled") {
+      return <MembershipDisabledState returnHref="/sign-in" />;
+    }
+
+    return <AccessDeniedState returnHref="/sign-in" />;
   }
 
   const detailAccess = guardClientDetailRoute({
@@ -42,23 +52,16 @@ export default async function EditClientPage({
     return <AccessDeniedState />;
   }
 
+  const client = runtime.clients.find((item) => item.id === clientId);
+
+  if (!client) {
+    return <ResourceNotFoundState />;
+  }
+
   return (
     <main className="grid max-w-2xl gap-6">
       <h1 className="text-2xl font-semibold">تعديل العميل</h1>
-      <ClientForm
-        mode="update"
-        client={{
-          id: clientId,
-          tenantId: "tenant-placeholder",
-          name: "",
-          slug: "",
-          status: "active",
-          createdBy: "system",
-          createdAt: "",
-          updatedAt: "",
-          revision: 1,
-        }}
-      />
+      <ClientForm action={updateClientAction} client={client} mode="update" />
     </main>
   );
 }

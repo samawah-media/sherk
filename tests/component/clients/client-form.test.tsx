@@ -19,6 +19,36 @@ describe("client form and states", () => {
     ).toBeInTheDocument();
   });
 
+  it("renders update values with revision guard fields", () => {
+    render(
+      <ClientForm
+        client={{
+          id: "client_a",
+          tenantId: "tenant_a",
+          name: "عميل قائم",
+          slug: "client-a",
+          status: "active",
+          primaryContactName: "مسؤولة التواصل",
+          primaryContactEmail: "client@example.test",
+          createdBy: "tenant_admin_a",
+          createdAt: "2026-06-24T00:00:00.000Z",
+          updatedAt: "2026-06-24T00:00:00.000Z",
+          revision: 7,
+        }}
+        mode="update"
+      />,
+    );
+
+    expect(
+      screen.getByRole("form", { name: "تعديل العميل" }),
+    ).toBeInTheDocument();
+    expect(screen.getByDisplayValue("عميل قائم")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("مسؤولة التواصل")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("client@example.test")).toBeInTheDocument();
+    expect(document.querySelector('input[name="clientId"]')).toHaveValue("client_a");
+    expect(document.querySelector('input[name="expectedRevision"]')).toHaveValue("7");
+  });
+
   it("renders the empty state without leaking other client names", () => {
     render(<ClientEmptyState />);
 

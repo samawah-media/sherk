@@ -4,7 +4,7 @@ create extension if not exists pgtap with schema extensions;
 
 set search_path = public, extensions;
 
-select plan(29);
+select plan(37);
 
 -- These grants are test-local and rolled back at the end. They isolate RLS
 -- behavior from the separate Data API grant decision documented for A1R.
@@ -12,7 +12,8 @@ grant usage on schema public to authenticated;
 grant select on public.tenants to authenticated;
 grant select on public.tenant_memberships to authenticated;
 grant select on public.client_memberships to authenticated;
-grant select, insert, update on public.clients to authenticated;
+grant select on public.clients to authenticated;
+revoke insert, update on public.clients from authenticated;
 grant select on public.role_assignments to authenticated;
 grant select, insert, update, delete on public.audit_events to authenticated;
 grant select, insert, update on public.invitations to authenticated;
@@ -178,19 +179,106 @@ select is(
   'tenant administrator can see all clients in own tenant'
 );
 
-insert into public.clients (id, tenant_id, name, slug, created_by)
-values (
-  '00000000-0000-4000-8000-000000000404',
-  '00000000-0000-4000-8000-000000000001',
-  'Client Created By Admin',
-  'client-created-by-admin',
-  '00000000-0000-4000-8000-000000000201'
+select throws_ok(
+  $$
+    insert into public.clients (id, tenant_id, name, slug, created_by)
+    values (
+      '00000000-0000-4000-8000-000000000404',
+      '00000000-0000-4000-8000-000000000001',
+      'Client Direct Insert Denied',
+      'client-direct-insert-denied',
+      '00000000-0000-4000-8000-000000000201'
+    )
+  $$,
+  '42501',
+  'permission denied for table clients',
+  'tenant administrator cannot directly insert clients outside the RPC audit path'
 );
 
 select is(
-  (select count(*)::integer from public.clients where slug = 'client-created-by-admin'),
+  (
+    select count(*)::integer
+    from public.f001_create_client_write(
+      '00000000-0000-4000-8000-000000000406',
+      '00000000-0000-4000-8000-000000000603',
+      'Client Created By RPC',
+      'client-created-by-rpc',
+      'Primary Contact',
+      'rpc@example.test'
+    )
+  ),
   1,
-  'tenant administrator can insert a tenant-scoped client'
+  'client write RPC creates a tenant-scoped client'
+);
+
+select is(
+  (
+    select count(*)::integer
+    from public.audit_events
+    where action = 'ClientCreated'
+      and target_id = '00000000-0000-4000-8000-000000000406'
+  ),
+  1,
+  'client write RPC records ClientCreated audit event'
+);
+
+select throws_ok(
+  $$
+    update public.clients
+    set name = 'Client Direct Update Denied',
+        slug = 'client-direct-update-denied',
+        revision = revision + 1
+    where id = '00000000-0000-4000-8000-000000000406'
+  $$,
+  '42501',
+  'permission denied for table clients',
+  'tenant administrator cannot directly update clients outside the RPC revision guard'
+);
+
+select is(
+  (
+    select revision
+    from public.f001_update_client_write(
+      '00000000-0000-4000-8000-000000000406',
+      '00000000-0000-4000-8000-000000000604',
+      'Client Updated By RPC',
+      'client-updated-by-rpc',
+      'Updated Contact',
+      'updated-rpc@example.test',
+      1
+    )
+  ),
+  2,
+  'client write RPC updates only the expected revision'
+);
+
+select is(
+  (
+    select count(*)::integer
+    from public.audit_events
+    where action = 'ClientUpdated'
+      and target_id = '00000000-0000-4000-8000-000000000406'
+  ),
+  1,
+  'client write RPC records ClientUpdated audit event'
+);
+
+select throws_ok(
+  $$
+    select *
+    from public.f001_update_client_write(
+      '00000000-0000-4000-8000-000000000406',
+      '00000000-0000-4000-8000-000000000606',
+      'Client Stale Revision Denied',
+      'client-stale-revision-denied',
+      null,
+      null,
+      1
+    )
+  $$,
+  'P0002',
+  'client write conflict',
+  'client write RPC rejects stale expected revision'
 );
 
 select is(
@@ -219,7 +307,11 @@ values (
 );
 
 select is(
-  (select count(*)::integer from public.audit_events),
+  (
+    select count(*)::integer
+    from public.audit_events
+    where action = 'A1RTestAllowedAuditInsert'
+  ),
   1,
   'tenant administrator can insert and read Tenant A audit event'
 );
@@ -420,8 +512,43 @@ select throws_ok(
     )
   $$,
   '42501',
-  'new row violates row-level security policy for table "clients"',
-  'active tenant member without management role cannot insert clients'
+  'permission denied for table clients',
+  'active tenant member without management role cannot directly insert clients'
+);
+
+select throws_ok(
+  $$
+    select *
+    from public.f001_create_client_write(
+      '00000000-0000-4000-8000-000000000407',
+      '00000000-0000-4000-8000-000000000605',
+      'Client Denied By RPC',
+      'client-denied-by-rpc',
+      null,
+      null
+    )
+  $$,
+  '42501',
+  'not authorized',
+  'active tenant member without management role cannot use client write RPC'
+);
+
+select throws_ok(
+  $$
+    select *
+    from public.f001_update_client_write(
+      '00000000-0000-4000-8000-000000000406',
+      '00000000-0000-4000-8000-000000000607',
+      'Client Update Denied By RPC',
+      'client-update-denied-by-rpc',
+      null,
+      null,
+      2
+    )
+  $$,
+  '42501',
+  'not authorized',
+  'active tenant member without management role cannot use client update RPC'
 );
 
 select is(

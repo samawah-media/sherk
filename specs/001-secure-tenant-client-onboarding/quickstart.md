@@ -76,6 +76,14 @@ This guide describes how to validate F-001 after implementation. It is not a ful
 - E2E spec added: `tests/e2e/management/create-client.spec.ts` covers the Arabic empty client list and create-client form route; this remains limited to A2 UI surfaces.
 - Out of scope: invitation lifecycle, membership lifecycle, client portal access, deliverables, files, SLA, approvals, and production Supabase usage.
 
+#### F-001B Cycle 2A Evidence - 2026-06-27
+
+- Hosted write workflow: tenant administrators can access real runtime create/edit client forms; local `?as=` fixtures remain limited to local/development/test.
+- Server mutation path: `src/server/actions/clients.ts` validates form data with Zod, derives tenant scope from Supabase runtime context, and calls security-invoker RPC functions.
+- Database write path: `supabase/migrations/202606270001_f001b_client_write_workflows.sql` adds explicit client write grants, optimistic `revision`, and atomic client write + audit RPC functions.
+- Verification: `npm run test:rls:db` passes 34 pgTAP assertions, including `ClientCreated` and `ClientUpdated` audit coverage for RPC writes.
+- Evidence record: `specs/001-secure-tenant-client-onboarding/evidence/f001b/cycle-2a-client-write-workflows.md`.
+
 ### 6. Invite Internal Member
 
 - Expected Result: pending invitation created for `internal-a@example.test` with Client A scope and internal role.

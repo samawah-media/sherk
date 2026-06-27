@@ -33,6 +33,7 @@ export default async function ClientsPage({
 
   const { actor, clients } = runtime;
   const access = guardManagementRoute({ actor, route: "clients" });
+  const writeAccess = guardManagementRoute({ actor, route: "clientWrite" });
 
   if (!access.allowed) {
     if (access.reason === "membership_disabled") {
@@ -43,23 +44,36 @@ export default async function ClientsPage({
   }
 
   const visibleClients = clients.filter((client) => client.tenantId === actor.tenantId);
+  const showFixtureEmptyState = canUseRouteActorFixtures();
 
   return (
     <main className="grid gap-6">
       <h1 className="text-2xl font-semibold">العملاء</h1>
-      {visibleClients.length > 0 && !canUseRouteActorFixtures() ? (
+      {visibleClients.length > 0 && !showFixtureEmptyState ? (
         <section aria-label="قائمة العملاء" className="grid gap-3">
           {visibleClients.map((client) => (
             <article className="rounded-lg border border-border p-4" key={client.id}>
-              <h2 className="text-base font-semibold">{client.name}</h2>
-              <p className="mt-1 font-mono text-xs text-muted">{client.slug}</p>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-base font-semibold">{client.name}</h2>
+                  <p className="mt-1 font-mono text-xs text-muted">{client.slug}</p>
+                </div>
+                {writeAccess.allowed ? (
+                  <Link
+                    className="rounded-md border border-border px-3 py-2 text-sm font-semibold"
+                    href={`/clients/${client.id}/edit`}
+                  >
+                    تعديل
+                  </Link>
+                ) : null}
+              </div>
             </article>
           ))}
         </section>
       ) : (
         <ClientEmptyState />
       )}
-      {canUseRouteActorFixtures() ? (
+      {writeAccess.allowed ? (
         <Link
           className="w-fit rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
           href="/clients/new"

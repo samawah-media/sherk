@@ -1,18 +1,57 @@
 # Project Progress
 
-Last updated: 2026-06-24
+Last updated: 2026-06-27
 
 ## Current Execution Gate
 
 | Item | Value |
 |---|---|
-| Feature | F-001A Secure Client Foundation |
-| Worktree | `D:\code - projects\shrek-platform-f001a` |
-| Branch | `feat/f001a-secure-client-foundation` |
-| Current allowed stage | Phase 6 Stabilization and Owner Gate Reconciliation only |
-| Status | STABILIZED — PENDING OWNER APPROVAL |
-| Next gate | Owner review of T037-T083; stop before T084-T103 and Phase 7 |
-| Owner decision required | Required before accepting T037-T083, starting T084-T103, Phase 7, deploy, merge, or production Supabase work |
+| Feature | F-001B Cycle 2B Hosted Staging Migration and UAT Gate |
+| Worktree | `D:\code - projects\sherk-f001b-uat` |
+| Branch | `feat/f001b-staging-uat-enablement` |
+| Current allowed stage | Cycle 2B review/evidence only |
+| Status | BLOCKED - staging migration not applied |
+| Next gate | Owner/architect decision on client write grant hardening |
+| Owner decision required | Required before applying `202606270001` to staging, running hosted UAT, merging, or using production Supabase |
+
+## F-001B Cycle 2B - 2026-06-27
+
+Cycle status:
+
+- F-001B Cycle 2A = Locally Verified and committed at `a22a5f596fc9d298246d223bea9a1187808a47a0`.
+- F-001B Cycle 2B = BLOCKED before hosted staging migration.
+- F-001B is not ready for merge.
+
+Blocker:
+
+- HIGH finding H-001: migration `202606270001_f001b_client_write_workflows.sql` grants direct `insert, update` on `public.clients` to `authenticated`, while existing RLS policies allow tenant management roles to write clients. This can bypass the intended RPC audit transaction and `expected_revision` guard.
+
+Evidence:
+
+- `specs/001-secure-tenant-client-onboarding/evidence/f001b/cycle-2b-hosted-staging-uat.md`
+- `specs/001-secure-tenant-client-onboarding/evidence/f001b/reviews/cycle-2b-migration-security-review.md`
+- `specs/001-secure-tenant-client-onboarding/evidence/f001b/reviews/cycle-2b-spec-compliance.md`
+- `specs/001-secure-tenant-client-onboarding/evidence/f001b/reviews/cycle-2b-code-quality-security.md`
+- `specs/001-secure-tenant-client-onboarding/evidence/f001b/stack-compliance-cycle-2b.md`
+
+Verification completed before block:
+
+- `npm run typecheck`: passed.
+- `npm run lint`: passed.
+- `npm run test:unit`: passed, 18 files / 51 tests.
+- `npm run test:integration`: passed, 13 files / 44 tests.
+- `npm run test:component`: passed, 7 files / 20 tests.
+- `npm run test:rls:db` with Supabase telemetry disabled: passed, 1 pgTAP file / 34 tests.
+- `npm run secret:scan`: passed, no high-confidence secrets found.
+- `npm run build`: passed.
+- `npm audit --audit-level=high`: passed high/critical threshold; two moderate PostCSS advisories remain through Next.js.
+
+Out of scope confirmed:
+
+- No invitations were started.
+- No role/member mutations were executed outside verification.
+- No deliverables, contracts/packages, files, SLA, approvals, Kanban, billing, or social scheduling were started.
+- No production Supabase project, production credentials, real client data, merge to `main`, push, or hosted staging mutation was used.
 
 ## Owner Gate - 2026-06-24 Stabilization Only
 
