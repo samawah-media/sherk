@@ -9,12 +9,37 @@ Last updated: 2026-06-29
 | Product name | `Sharik` |
 | Package slug | `sharik-platform` |
 | Feature | F-002 Deliverables Core |
-| Worktree | `D:\code - projects\shrek.platform-f002d` |
-| Branch | `codex/f002d-reservation-release-summaries` from `main` after PR #11 merge |
-| Current allowed stage | F-002D Reservation Release and Scope-Safe Summaries only |
-| Status | F-002D Reservation Release and Scope-Safe Summaries locally verified; PR ready to open |
-| Next gate | Review and merge F-002D only before F-002E verification/evidence or later F-002 slices |
+| Worktree | `D:\code - projects\sharik-worktrees\f002-post-evidence-progress` |
+| Branch | `codex/f002-post-evidence-progress` from `main` after PR #13 merge |
+| Current allowed stage | Post-F-002E project progress documentation only |
+| Status | PR #13 / F-002E Verification And Evidence readiness merged into `main`; F-002 is review-ready only and is not production accepted |
+| Next gate | Owner review and explicit decision before F-002 full acceptance, hosted staging migration, production use, real client data, F-003, or scope expansion |
 | Owner decision required | Required before hosted staging migration, production usage, real data, Kanban, files, comments, approvals, SLA engine, F-002 full acceptance, or scope expansion |
+
+## F-002E Verification And Evidence Readiness - 2026-06-29
+
+Scope recorded:
+
+- PR #13, `chore(F-002E): add verification evidence and traceability`, was opened for the F-002E readiness slice and merged into `main` on 2026-06-29.
+- F-002E is a Verification And Evidence readiness slice only. It did not add features and does not start F-003, Kanban, files, comments, approvals, SLA engine, delivery workflow, billing, social scheduling, or any other new scope.
+- Evidence and traceability were documented in `specs/002-deliverables-core/quickstart.md`, `specs/002-deliverables-core/tasks.md`, and `specs/002-deliverables-core/evidence/f002-security-review.md`.
+- The documented F-002E evidence records local review-readiness verification only. F-002 remains review-ready, not production accepted.
+
+PR #13 evidence status:
+
+- `npm run test:unit`: documented PASS, 22 files / 65 tests.
+- `npm run test:integration`: documented PASS, 18 files / 73 tests.
+- `npm run test:rls`: documented PASS, simulator 7 files / 21 tests and pgTAP 2 files / 110 tests.
+- `npm run test:component`: documented PASS, 12 files / 39 tests.
+- `npm run test:e2e`: documented PASS, 61 passed / 2 skipped across desktop, mobile, and RTL projects.
+- `npm run typecheck`, `npm run lint`, `npm run secret:scan`, `npm audit --audit-level=high`, and `npm run build`: documented PASS for the local evidence run.
+
+Scope controls confirmed:
+
+- No hosted staging migration was run.
+- No production migration, production Supabase usage, production credentials, or real client data were used.
+- No dependency, migration, ADR, `RoleKey`, or standalone `project_manager` role change was made.
+- F-002 full acceptance requires a separate explicit owner decision.
 
 ## F-002D Reservation Release and Scope-Safe Summaries - 2026-06-29
 
