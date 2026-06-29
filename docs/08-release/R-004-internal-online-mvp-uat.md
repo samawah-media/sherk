@@ -2,7 +2,7 @@
 
 ## Status
 
-PLANNED AND GATED - HOSTED OPERATIONS NOT YET RUN
+BLOCKED AFTER HOSTED UAT RESUME ATTEMPT - HOSTED OPERATIONS NOT RUN
 
 This release gate prepares a protected internal online UAT after PR #17. It is not Production readiness and does not authorize real client data.
 
@@ -13,6 +13,8 @@ This release gate prepares a protected internal online UAT after PR #17. It is n
 - Merge commit: `6c406049203230c6b7e34eb0708bac0f82c981f8`
 - UAT branch: `codex/internal-online-mvp-uat`
 - PR #18 status: merged on 2026-06-29; follow-up corrections are on `codex/r004-uat-gate-follow-up`
+- PR #19 status: merged on 2026-06-29; latest `main` merge commit is `466b9eddbbcd2465fb2106907b4b38fb0880196c`
+- Hosted UAT resume branch: `codex/r004-hosted-uat-evidence`
 - Spec Kit package: `specs/004-internal-online-mvp-uat/`
 
 ## Goal
@@ -35,8 +37,11 @@ Prepare the smallest protected internal online UAT that can validate accepted MV
 |---|---:|---|
 | PR #17 merged | PASS | Verified through GitHub CLI. |
 | Spec Kit UAT package | PASS | Created under `specs/004-internal-online-mvp-uat/`. |
-| Hosted Supabase approval | BLOCKED | Latest approval text still contains `<PROJECT_REF>` placeholder; requires the real non-production project ref. |
-| Protected Preview deploy | BLOCKED | Vercel CLI currently shows `omarhussien2` only, not the approved Samawah scope. No deploy was attempted. |
+| PR #18 and PR #19 merged | PASS | `origin/main` contains PR #18 merge `9dac378` and PR #19 merge `466b9ed`. |
+| Latest `main` CI/checks | NOT RUN | GitHub check-runs for `466b9ed` returned zero checks and no status contexts. |
+| Hosted Supabase approval | BLOCKED | Resume approval named `REAL_PROJECT_REF_HERE`, which is not a valid Supabase project ref format; requires a real non-production project ref. |
+| Hosted Supabase target/data verification | BLOCKED | Cannot verify non-production status or absence of real client data/users without a valid project ref. |
+| Protected Preview deploy | BLOCKED | Vercel CLI currently shows `omarhussien2` only, `vercel teams ls` shows only `omarhussien2s-projects`, and no approved Samawah scope/project link is available. No deploy was attempted. |
 | Hosted smoke/security/UAT checks | BLOCKED | Requires protected Preview and, for data-backed checks, hosted migration/seed approval. |
 | R-004 synthetic seed preparation | PASS | Guarded seed prepared at `supabase/seeds/r004_internal_online_mvp_uat.sql`; not applied to hosted. |
 
@@ -60,7 +65,8 @@ Prepare the smallest protected internal online UAT that can validate accepted MV
 
 ## Current Blockers
 
-- Hosted Supabase migration is blocked until explicit owner approval.
+- Hosted Supabase migration is blocked until a valid real non-production project ref is provided and verified. The supplied `REAL_PROJECT_REF_HERE` value is not a valid Supabase project ref format.
+- The hosted target cannot be confirmed non-production or free of real client data/users until the valid target is available and inspected through an approved non-secret path.
 - Hosted data-backed UAT is blocked until migration and synthetic seed are approved and executed.
 - `paused_waiting_internal_decision` cannot be represented as hosted persisted seed data in the current MVP because no SLA segment table exists yet; it remains domain/unit evidence only.
 - Vercel deployment must not proceed until the approved Sharik/Samawah account/scope and protection are confirmed. Current CLI context is `omarhussien2`, and `vercel teams ls` does not show `samawahs-projects`.
@@ -80,6 +86,19 @@ Prepare the smallest protected internal online UAT that can validate accepted MV
 - `npm audit --audit-level=high`: passed; existing moderate PostCSS advisory through Next remains.
 - `npm run build`: passed.
 - R-004 seed local validation: passed after `npx supabase@2.107.0 db reset --local --no-seed`; applied twice via `psql` inside `supabase_db_sharik-platform` with 2 clients, 5 auth users, and 7 deliverables.
+
+## Resume Verification - 2026-06-29
+
+- `git diff --check`: passed; line-ending warnings only.
+- `npm run secret:scan`: passed; no high-confidence secrets found.
+- `npm run lint`: passed.
+- `npm run test:unit`: passed, 23 files / 72 tests.
+- `npm run test:integration`: passed, 19 files / 76 tests.
+- `npm run test:component`: passed, 12 files / 39 tests.
+- `npm run test:rls:simulator`: passed, 7 files / 21 tests.
+- `npm audit --audit-level=high`: passed high/critical threshold; existing moderate PostCSS advisory through Next remains.
+- `npm run typecheck`: failed in current baseline/unmodified source and Next type declarations; this resume changed documentation/evidence only.
+- `npm run build`: compiled successfully, then failed TypeScript validation on missing declaration for `next/types.js`; this resume changed documentation/evidence only.
 
 ## Out Of Scope
 

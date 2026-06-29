@@ -9,12 +9,54 @@ Last updated: 2026-06-29
 | Product name | `Sharik` |
 | Package slug | `sharik-platform` |
 | Feature | R-004 Internal Online MVP UAT |
-| Worktree | `D:\code - projects\sharik-worktrees\internal-online-mvp-uat` |
-| Branch | `codex/r004-uat-gate-follow-up` from PR #18 merge commit on `origin/main` |
-| Current allowed stage | Spec Kit, non-production UAT planning, local verification, and PR preparation only |
-| Status | PR #18 is merged; follow-up corrections are preparing Spec Kit tooling and a guarded R-004 synthetic seed only; no hosted Supabase migration, protected Preview deployment, Production usage, or real client data has been run in this branch |
-| Next gate | Owner must provide the real non-production Supabase project ref in the exact H1 approval text before any hosted non-production Supabase migration |
+| Worktree | `D:\code - projects\sharik-worktrees\r004-hosted-uat` |
+| Branch | `codex/r004-hosted-uat-evidence` from PR #19 merge commit on `origin/main` |
+| Current allowed stage | Evidence update and PR preparation only; hosted Supabase and Vercel remain blocked |
+| Status | PR #18 and PR #19 are merged on `main`; hosted Supabase migration was not run because `REAL_PROJECT_REF_HERE` is not a valid Supabase project ref format; protected Preview deployment was not run because Vercel CLI is still scoped only to the personal `omarhussien2` account |
+| Next gate | Owner must provide a valid real non-production Supabase project ref and an approved Samawah Vercel scope/session before any hosted migration, synthetic hosted seed, or protected Preview deploy |
 | Owner decision required | Required before hosted non-production Supabase migration, synthetic hosted seed, protected Preview deployment sharing, or marking hosted UAT checks as passed |
+
+## R-004 Hosted UAT Resume Attempt - 2026-06-29
+
+Scope reviewed:
+
+- PR #18, `chore(R-004): prepare internal online MVP UAT gate`, is merged on `main` with merge commit `9dac378d7d97d9ee3edcd5b6d9f551f7bf78300e`.
+- PR #19, `chore(R-004): fix UAT gate follow-up blockers`, is merged on `main` with merge commit `466b9eddbbcd2465fb2106907b4b38fb0880196c`.
+- Local R-004 resume branch `codex/r004-hosted-uat-evidence` starts from `origin/main` at `466b9ed`.
+- GitHub check-runs for `466b9ed` returned zero checks and the combined commit status has no contexts; the latest visible `main` Actions run is older than PR #18/#19.
+
+Hosted Supabase result:
+
+- H1 did not pass: the supplied project ref was `REAL_PROJECT_REF_HERE`, which is not a valid Supabase project ref format.
+- Because the target could not be verified, no hosted Supabase link, migration, SQL execution, hosted seed, or real-data inspection was attempted.
+- The target cannot be recorded as non-production or free of real client data/users until a valid non-production project ref and approved connection path are provided.
+- R-004 hosted UAT remains restricted to `supabase/seeds/r004_internal_online_mvp_uat.sql` only after a future valid target is approved and verified; `supabase/seed.sql` remains prohibited for R-004 hosted UAT.
+
+Protected Preview result:
+
+- Vercel CLI `whoami` returns `omarhussien2`.
+- `vercel teams ls` shows only `omarhussien2s-projects`.
+- No `.vercel/project.json` link exists in the R-004 resume worktree.
+- Approved Samawah scope is not available in this session, so no Preview deploy, env mutation, protected URL sharing, or smoke check was attempted.
+
+Hosted smoke/security/UAT evidence:
+
+- Smoke checks remain `NOT RUN` because no approved protected Preview URL exists.
+- Hosted security and UAT checks remain `BLOCKED` because no valid hosted Supabase target was verified and no synthetic hosted seed was applied.
+- No Production target, Production Supabase project, real client data, new dependency, RoleKey change, standalone `project_manager` role, Kanban/files/comments/approvals/social scheduling/AI scope, or PR merge was introduced.
+
+Resume validation:
+
+- `git diff --check`: passed; line-ending warnings only.
+- `npm run secret:scan`: passed; no high-confidence secrets found.
+- `npm run lint`: passed.
+- `npm run test:unit`: passed, 23 files / 72 tests.
+- `npm run test:integration`: passed, 19 files / 76 tests.
+- `npm run test:component`: passed, 12 files / 39 tests.
+- `npm run test:rls:simulator`: passed, 7 files / 21 tests.
+- `npm audit --audit-level=high`: passed high/critical threshold; existing moderate PostCSS advisory through Next remains.
+- `npm run typecheck`: failed in current baseline/unmodified source and Next type declarations; this resume changed documentation/evidence only.
+- `npm run build`: compiled successfully, then failed TypeScript validation on missing declaration for `next/types.js`; this resume changed documentation/evidence only.
 
 ## R-004A UAT Gate Follow-up Corrections - 2026-06-29
 
