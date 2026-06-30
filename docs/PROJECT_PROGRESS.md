@@ -10,11 +10,58 @@ Last updated: 2026-06-30
 | Package slug | `sharik-platform` |
 | Feature | R-004 Internal Online MVP UAT |
 | Worktree | `D:\code - projects\sharik-worktrees\r004-hosted-uat` |
-| Branch | `codex/r004-hosted-uat-run` from PR #20 merge commit on `origin/main` |
-| Current allowed stage | Supabase UAT access verification and evidence update only; migration/seed remains blocked by account privileges |
-| Status | PR #18, PR #19, and PR #20 are merged on `main`; owner supplied Supabase project ref `jnvuccapgsabrwwkxnbh`, but the local Supabase CLI account cannot access it |
-| Next gate | Owner must grant this CLI account access to the Supabase UAT project or log this machine into the new Supabase account before any hosted migration/seed |
-| Owner decision required | Required to grant Supabase access; no hosted migration, hosted seed, Vercel env mutation, or deploy can proceed until target access and no-real-data checks pass |
+| Branch | `codex/r004-supabase-db-password-blocker` from PR #21 merge commit on `origin/main` |
+| Current allowed stage | Evidence and hosted-readiness verification only; migration/seed remains blocked until DB password access is available |
+| Status | PR #18, PR #19, PR #20, and PR #21 are merged on `main`; PR #22 is open and green; owner supplied Supabase project ref `jnvuccapgsabrwwkxnbh`; project metadata is visible and `supabase link` succeeds, but database/auth inspection requires `SUPABASE_DB_PASSWORD`; Vercel CLI is logged in as `omarhussien2`, but no Vercel project is linked for this worktree |
+| Next gate | Owner must provide database-password access through a secure local environment path before no-real-data verification, migration, seed, data-backed UAT, or team-ready online deployment |
+| Owner decision required | Required to enable DB password access locally and confirm whether to create/link a new free Vercel project named `sharik-platform`; no hosted migration, hosted seed, Vercel env mutation, or deploy can proceed until no-real-data checks pass |
+
+## R-004E Vercel Readiness And Remaining Hosted Blockers - 2026-06-30
+
+Verification:
+
+- `origin/main` is `86119ca350811511dfdc81403a5ae6548e0caf7f`, the merge commit for PR #21.
+- GitHub check-runs for `86119ca350811511dfdc81403a5ae6548e0caf7f` returned zero checks; combined commit status has no contexts.
+- PR #22 (`[codex] R-004 Supabase DB password blocker`) is open with `quality` and `CodeRabbit` passing.
+- `SUPABASE_DB_PASSWORD` is not available in the Codex process environment, so hosted auth/user count and no-real-data verification cannot complete.
+- `npx supabase@2.107.0 projects list --output-format json` shows project ref `jnvuccapgsabrwwkxnbh` as linked to `sharik-uat`.
+- `npx supabase@2.107.0 link --project-ref jnvuccapgsabrwwkxnbh` still succeeds.
+- Vercel CLI `50.11.0` is authenticated as `omarhussien2`.
+- No `.vercel/project.json` exists in the R-004 worktree.
+- `vercel project list` for the personal account reports no projects.
+- The current app needs at least `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` for hosted sign-in and Supabase-backed pages.
+
+Result:
+
+- No hosted Supabase migration was run.
+- No hosted seed was run.
+- No Vercel project was created or linked.
+- No Vercel env var was added, updated, or printed.
+- No Vercel deployment was run.
+- A shell-only Vercel deployment could be created after project confirmation, but it would not be a valid team UAT without Supabase migration, synthetic seed, and smoke/security/UAT checks.
+- Team-ready online UAT can proceed after DB password access is made available securely, no-real-data verification passes, hosted migration and `supabase/seeds/r004_internal_online_mvp_uat.sql` succeed, and Vercel project/env/deploy evidence is recorded.
+
+## R-004D Supabase Link Success And DB Password Blocker - 2026-06-30
+
+Owner action:
+
+- Owner logged the machine into Supabase with a Personal Access Token.
+
+Verification:
+
+- `npx supabase@2.107.0 projects list --output-format json` now shows project ref `jnvuccapgsabrwwkxnbh`.
+- Project metadata: name `sharik-uat`, region `eu-west-1`, status `ACTIVE_HEALTHY`, created `2026-06-30T08:35:34.159437Z`.
+- `npx supabase@2.107.0 link --project-ref jnvuccapgsabrwwkxnbh` passed and returned the target project ref.
+- Initial schema metadata query through `db query --linked` succeeded and showed only Supabase-managed auth base tables before hosted migration.
+- A follow-up `auth.users` count query failed because the CLI could not complete Postgres authentication and requested `SUPABASE_DB_PASSWORD`.
+
+Result:
+
+- Target metadata supports UAT/non-production intent.
+- The target has not been fully verified as free of real client users/data because DB password access is still missing.
+- No hosted Supabase migration was run.
+- No hosted seed was run.
+- `supabase/seeds/r004_internal_online_mvp_uat.sql` remains the only approved R-004 hosted seed after DB verification passes.
 
 ## R-004C Supabase UAT Access Attempt - 2026-06-30
 
