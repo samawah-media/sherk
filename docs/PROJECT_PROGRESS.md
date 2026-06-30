@@ -10,11 +10,35 @@ Last updated: 2026-06-30
 | Package slug | `sharik-platform` |
 | Feature | R-004 Internal Online MVP UAT |
 | Worktree | `D:\code - projects\sharik-worktrees\r004-hosted-uat` |
-| Branch | `codex/r004-hosted-uat-evidence` from PR #19 merge commit on `origin/main` |
-| Current allowed stage | Update R-004 gates for owner-approved Vercel Hobby/free and Production hosting target; Supabase remains deferred |
-| Status | PR #18 and PR #19 are merged on `main`; owner clarified no Sharik Supabase project exists yet, approved Vercel Hobby/free, and approved Vercel Production target for hosting only |
-| Next gate | Run/record Vercel account/project/deployment checks when ready; Supabase migration/seed remains blocked until a Supabase UAT project exists |
-| Owner decision required | Required before hosted Supabase migration or synthetic hosted seed; Vercel Hobby/free and Production hosting-only target are already owner-approved |
+| Branch | `codex/r004-hosted-uat-run` from PR #20 merge commit on `origin/main` |
+| Current allowed stage | Supabase UAT access verification and evidence update only; migration/seed remains blocked by account privileges |
+| Status | PR #18, PR #19, and PR #20 are merged on `main`; owner supplied Supabase project ref `jnvuccapgsabrwwkxnbh`, but the local Supabase CLI account cannot access it |
+| Next gate | Owner must grant this CLI account access to the Supabase UAT project or log this machine into the new Supabase account before any hosted migration/seed |
+| Owner decision required | Required to grant Supabase access; no hosted migration, hosted seed, Vercel env mutation, or deploy can proceed until target access and no-real-data checks pass |
+
+## R-004C Supabase UAT Access Attempt - 2026-06-30
+
+Owner input:
+
+- Supabase project ref provided: `jnvuccapgsabrwwkxnbh`.
+- The ref has the correct Supabase project-ref shape and replaces the previous placeholder blocker.
+- The work continued on new branch `codex/r004-hosted-uat-run` because PR #20 was already merged into `main`.
+
+Verification:
+
+- `origin/main` is `a900a6e206b74a9a6e7afc62356400444bbe47f3`, the merge commit for PR #20.
+- GitHub check-runs for `a900a6e206b74a9a6e7afc62356400444bbe47f3` returned zero checks; combined commit status has no contexts.
+- Supabase CLI `2.107.0` is available when telemetry is disabled.
+- Current Supabase CLI organizations are visible, but the target project ref is not listed under the current account.
+- `npx supabase@2.107.0 link --project-ref jnvuccapgsabrwwkxnbh` failed with a Supabase access-control error: the current account does not have privileges for that project.
+
+Result:
+
+- No hosted Supabase migration was run.
+- No hosted seed was run.
+- The target could not be verified as non-production.
+- The target could not be inspected for real client data/users.
+- `supabase/seeds/r004_internal_online_mvp_uat.sql` remains the only approved R-004 hosted seed after access is fixed and the target passes verification.
 
 ## R-004B Free Vercel And Supabase Deferral Decision - 2026-06-30
 

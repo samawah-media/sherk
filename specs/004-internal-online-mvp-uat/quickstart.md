@@ -71,6 +71,26 @@ Expected result:
 
 For Supabase, use approved project metadata only after H1 approval. Do not print service role keys or database passwords.
 
+## Supabase Access Recovery If CLI Is Unauthorized
+
+If `supabase link --project-ref <PROJECT_REF>` returns an access-control error, stop before migration and seed.
+
+Allowed recovery paths:
+
+1. Invite the Supabase account currently used by this machine to the UAT project organization with sufficient project/database privileges.
+2. Or log this machine into the new Supabase account using a Personal Access Token:
+
+```powershell
+npx supabase@2.107.0 login --token <SUPABASE_ACCESS_TOKEN>
+```
+
+Do not commit or paste the token in docs, PR text, screenshots, or terminal logs. After login, rerun only non-secret verification first:
+
+```powershell
+npx supabase@2.107.0 projects list
+npx supabase@2.107.0 link --project-ref <PROJECT_REF>
+```
+
 ## Hosted Supabase Migration - Blocked Until Approval
 
 After explicit approval only:
