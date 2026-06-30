@@ -50,7 +50,7 @@
 
 **Purpose**: Stop before any hosted database mutation until approval is explicit.
 
-- [ ] T022 [US2] Obtain explicit owner approval matching `contracts/uat-gates.md` Gate H1 before hosted Supabase migration; Req: FR-006; Verification: approval recorded without secrets and without the literal `<PROJECT_REF>` placeholder; Dependencies: T021; Category: Hosted Gate
+- [x] T022 [US2] Obtain explicit owner approval matching `contracts/uat-gates.md` Gate H1 before hosted Supabase migration; Req: FR-006; Verification: owner supplied project ref `jnvuccapgsabrwwkxnbh` without secrets; Dependencies: T021; Category: Hosted Gate
 - [ ] T023 [US2] Verify target Supabase project is non-production and contains no real client data; Req: FR-005, SR-001; Verification: project/ref evidence without secrets; Dependencies: T022; Category: Hosted Gate
 - [ ] T024 [US2] Run hosted non-production migration only after T022-T023; Req: FR-006; Verification: migration list/evidence; Dependencies: T023; Category: Hosted Migration
 - [ ] T025 [US2] Seed synthetic data from `supabase/seeds/r004_internal_online_mvp_uat.sql` only after migration approval and target verification; Req: FR-005, SR-003, SR-007; Verification: seed manifest and row counts without secrets; Dependencies: T024; Category: Hosted Data
@@ -99,6 +99,14 @@
 - [x] T043 [US1] Record owner decision that Vercel Hobby/free is acceptable and Vercel Production target may be used for hosting only; Req: FR-004, SR-001; Verification: `spec.md`, `plan.md`, `quickstart.md`, `contracts/uat-gates.md`; Dependencies: T042; Category: Scope Control
 - [x] T044 [US1] Defer hosted Supabase migration/seed until a Supabase UAT project exists; Req: FR-006, SR-004; Verification: `spec.md`, `plan.md`, `data-model.md`, evidence checklist; Dependencies: T043; Category: Hosted Gate
 - [ ] T045 [US2] Run Vercel deployment checks under owner-approved Hobby/free account; Req: FR-004, FR-009; Verification: deployment URL/id/target and rollback path; Dependencies: T026-T028; Category: Deploy
+
+## Phase 10: R-004C Supabase Access Attempt
+
+**Purpose**: Capture the supplied Supabase project ref and stop safely when the current CLI account cannot access the project.
+
+- [x] T046 [US2] Record supplied Supabase project ref `jnvuccapgsabrwwkxnbh`; Req: FR-006, SR-001; Verification: evidence checklist and progress docs updated without secrets; Dependencies: T044; Category: Hosted Gate
+- [x] T047 [US2] Attempt non-secret Supabase CLI access verification; Req: FR-005, SR-001; Verification: `supabase link --project-ref` returned an access-control error; Dependencies: T046; Category: Hosted Gate
+- [ ] T048 [US2] Re-run target verification after owner grants access or logs this machine into the correct Supabase account; Req: FR-005, SR-001; Verification: target metadata and no-real-data inspection without secrets; Dependencies: T047; Category: Hosted Gate
 
 ## Dependencies & Execution Order
 
