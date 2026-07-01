@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Eye, EyeOff } from "lucide-react";
 import {
   getSafeAuthErrorMessage,
   getSafeRedirectPath,
@@ -14,6 +15,7 @@ export function SignInForm() {
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -62,15 +64,32 @@ export function SignInForm() {
           type="email"
         />
       </label>
-      <label className="grid gap-2 text-sm font-medium">
-        كلمة المرور
-        <input
-          autoComplete="current-password"
-          className="rounded-md border border-border bg-background px-3 py-2"
-          name="password"
-          type="password"
-        />
-      </label>
+      <div className="grid gap-2 text-sm font-medium">
+        <label htmlFor="sign-in-password">كلمة المرور</label>
+        <span className="relative block">
+          <input
+            autoComplete="current-password"
+            className="w-full rounded-md border border-border bg-background px-3 py-2 pl-11"
+            id="sign-in-password"
+            name="password"
+            type={showPassword ? "text" : "password"}
+          />
+          <button
+            aria-label={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+            aria-pressed={showPassword}
+            className="absolute inset-y-1 left-1 inline-flex w-9 items-center justify-center rounded-md text-muted transition hover:bg-muted/10 hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            onClick={() => setShowPassword((value) => !value)}
+            title={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+            type="button"
+          >
+            {showPassword ? (
+              <EyeOff aria-hidden="true" size={18} strokeWidth={2} />
+            ) : (
+              <Eye aria-hidden="true" size={18} strokeWidth={2} />
+            )}
+          </button>
+        </span>
+      </div>
       {error ? (
         <p className="rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
           {error}
