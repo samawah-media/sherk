@@ -49,10 +49,23 @@ Date: 2026-07-01
 | CHECK-009 | `npm run test:e2e` | PASS | Final rerun passed: 67 passed / 2 skipped. First run had one desktop cold-start timeout and was rerun successfully. |
 | CHECK-010 | `npm run build` | PASS | Passed; `/clients/[clientId]/deliverables/board` is dynamic. |
 
+## PR #26 Gate Review Evidence
+
+| ID | Check | Status | Evidence |
+|---|---|---:|---|
+| GATE-001 | Final GitHub Actions CI on PR #26 | PASS | `F-001 Quality` run `28496289857` passed on commit `5be59e43f96c7825b2e756c29ce7985e5e6ae5e4`. |
+| GATE-002 | CI command coverage | PASS | CI passed `npm run lint`, `npm run typecheck`, `npm run test:unit`, `npm run test:integration`, `npm run test:rls`, `npm run test:component`, `npm run test:e2e`, `npm run secret:scan`, and `npm run build`. |
+| GATE-003 | DB pgTAP in CI | PASS | CI ran `npx supabase@2.107.0 db start`, `npx supabase@2.107.0 db reset --local`, then `npm run test:rls`; DB pgTAP included `supabase/tests/database/f004_deliverable_status_workflow.test.sql` with status idempotency assertions. |
+| GATE-004 | CodeRabbit review | BLOCKED | CodeRabbit status context is green, but the visible CodeRabbit comment says `Review limit reached` and no review started. Do not request Owner Review until a real CodeRabbit review completes or the owner explicitly waives it. |
+| GATE-005 | PR merge state | HOLD | PR #26 remains open and unmerged. CI is passing, but CodeRabbit review is not complete. |
+
 ## Security Notes
 
 - No Production Supabase.
 - No real client data.
+- No hosted migration was applied for F-004.
+- No drag/drop was added; F-004 uses select/action controls.
+- No files, comments, or full approval workflow were added.
 - Client roles must not see board links or board route data.
 - All board reads and writes must include tenant/client scope.
 - Status transitions must append audit events for allowed and denied attempts.
